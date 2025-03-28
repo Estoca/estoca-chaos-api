@@ -11,7 +11,7 @@ import {
 export function useEndpoints(groupId: string) {
   const queryClient = useQueryClient()
 
-  const { data: endpoints = [], isLoading } = useQuery({
+  const { data: endpoints = [], isLoading, error } = useQuery({
     queryKey: ["endpoints", groupId],
     queryFn: async () => {
       try {
@@ -99,6 +99,7 @@ export function useEndpoints(groupId: string) {
   return {
     endpoints,
     isLoading,
+    error,
     createEndpoint: createEndpoint.mutateAsync,
     updateEndpoint: updateEndpoint.mutateAsync,
     deleteEndpoint: deleteEndpoint.mutateAsync,

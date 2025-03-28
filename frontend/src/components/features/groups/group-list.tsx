@@ -39,7 +39,7 @@ export function GroupList() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href="/dashboard/groups/new">
+          <Link href="/groups/new">
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               Create Group
@@ -53,7 +53,7 @@ export function GroupList() {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {groups.map((group) => (
-        <Link key={group.id} href={`/dashboard/groups/${group.id}`}>
+        <Link key={group.id} href={`/groups/${group.id}`}>
           <Card className="h-full transition-colors hover:bg-accent">
             <CardHeader>
               <CardTitle>{group.name}</CardTitle>

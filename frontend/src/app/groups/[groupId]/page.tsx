@@ -1,3 +1,5 @@
+"use client"
+
 import { notFound } from "next/navigation"
 import { EndpointList } from "@/components/features/endpoints/endpoint-list"
 import { useGroups } from "@/hooks/use-groups"

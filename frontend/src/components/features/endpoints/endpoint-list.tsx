@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { useEndpoints } from "@/hooks/use-endpoints"
 import { type Endpoint } from "@/types/endpoint"
 import { PlusIcon } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface EndpointListProps {
   groupId: string
@@ -14,23 +16,50 @@ interface EndpointListProps {
 
 export function EndpointList({ groupId }: EndpointListProps) {
   const router = useRouter()
-  const { endpoints, isLoading, deleteEndpoint } = useEndpoints(groupId)
+  const { toast } = useToast()
+  const { endpoints, isLoading, error } = useEndpoints(groupId)
+
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <h3 className="text-lg font-medium text-destructive">Error loading endpoints</h3>
+        <p className="text-muted-foreground mt-2">
+          There was an error loading the endpoints. Please try again later.
+        </p>
+        <Button
+          className="mt-4"
+          onClick={() => router.refresh()}
+        >
+          Retry
+        </Button>
+      </div>
+    )
+  }
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="animate-pulse">
-            <CardHeader>
-              <div className="h-6 w-3/4 bg-muted rounded" />
-              <div className="h-4 w-1/2 bg-muted rounded mt-2" />
-            </CardHeader>
-            <CardContent>
-              <div className="h-4 w-full bg-muted rounded mb-2" />
-              <div className="h-4 w-2/3 bg-muted rounded" />
-            </CardContent>
-          </Card>
-        ))}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-64 mt-2" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader>
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2 mt-2" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-4 w-full mb-2" />
+                <Skeleton className="h-4 w-2/3" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     )
   }

@@ -2,6 +2,7 @@ from datetime import timedelta
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
+import requests
 
 from app.api.v1.dependencies import get_db, get_current_user
 from app.core.config import settings
@@ -18,11 +19,28 @@ async def google_auth(
     # Remove 'Bearer ' prefix if present
     token = authorization.replace('Bearer ', '')
     
-    # Here we would validate the Google token
-    # For now, we'll just create a user if it doesn't exist
-    user = get_user_by_email(db, email=token)
+    # Validate the Google token by calling Google's userinfo endpoint
+    try:
+        response = requests.get(
+            'https://www.googleapis.com/oauth2/v3/userinfo',
+            headers={'Authorization': f'Bearer {token}'}
+        )
+        response.raise_for_status()
+        user_info = response.json()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Failed to validate Google token"
+        )
+    
+    # Get or create user
+    user = get_user_by_email(db, email=user_info['email'])
     if not user:
-        user = create_user(db, email=token, name=token.split("@")[0])
+        user = create_user(
+            db,
+            email=user_info['email'],
+            name=user_info.get('name', user_info['email'].split("@")[0])
+        )
     
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(

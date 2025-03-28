@@ -1,144 +1,89 @@
-from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from typing import List
+from uuid import UUID
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.dependencies import get_current_user, get_db
-from app.models.endpoint import Endpoint
-from app.models.group import Group
+from app.api.deps import get_current_user, get_db
 from app.models.user import User
-from app.schemas.endpoint import EndpointCreate, EndpointUpdate, EndpointResponse
+from app.repositories.endpoint import EndpointRepository
+from app.schemas.endpoint import Endpoint, EndpointCreate, EndpointUpdate
 
 router = APIRouter()
 
-
-@router.get("/group/{group_id}", response_model=List[EndpointResponse])
-async def read_endpoints(
-    *,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    group_id: str,
-) -> Any:
-    # Verify group exists and belongs to user
-    group = db.query(Group).filter(
-        Group.id == group_id,
-        Group.created_by_id == str(current_user.id),
-    ).first()
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
-    
-    endpoints = db.query(Endpoint).filter(Endpoint.group_id == group_id).all()
+@router.get("/groups/{group_id}/endpoints", response_model=List[Endpoint])
+async def list_endpoints(
+    group_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List all endpoints for a group."""
+    repo = EndpointRepository(db)
+    endpoints = await repo.get_by_group_id(group_id)
     return endpoints
 
-
-@router.post("/group/{group_id}", response_model=EndpointResponse)
+@router.post("/groups/{group_id}/endpoints", response_model=Endpoint)
 async def create_endpoint(
-    *,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    group_id: str,
-    endpoint_in: EndpointCreate,
-) -> Any:
-    # Verify group exists and belongs to user
-    group = db.query(Group).filter(
-        Group.id == group_id,
-        Group.created_by_id == str(current_user.id),
-    ).first()
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
-    
-    endpoint = Endpoint(
-        **endpoint_in.dict(),
-        group_id=group_id,
-        created_by_id=str(current_user.id),
-    )
-    db.add(endpoint)
-    db.commit()
-    db.refresh(endpoint)
+    group_id: UUID,
+    endpoint_data: EndpointCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Create a new endpoint in a group."""
+    repo = EndpointRepository(db)
+    endpoint = await repo.create(endpoint_data, current_user.id)
     return endpoint
 
-
-@router.get("/group/{group_id}/{endpoint_id}", response_model=EndpointResponse)
-async def read_endpoint(
-    *,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    group_id: str,
-    endpoint_id: str,
-) -> Any:
-    # Verify group exists and belongs to user
-    group = db.query(Group).filter(
-        Group.id == group_id,
-        Group.created_by_id == str(current_user.id),
-    ).first()
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
-    
-    endpoint = db.query(Endpoint).filter(
-        Endpoint.id == endpoint_id,
-        Endpoint.group_id == group_id,
-    ).first()
+@router.get("/groups/{group_id}/endpoints/{endpoint_id}", response_model=Endpoint)
+async def get_endpoint(
+    group_id: UUID,
+    endpoint_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get a specific endpoint."""
+    repo = EndpointRepository(db)
+    endpoint = await repo.get_by_id(endpoint_id)
     if not endpoint:
         raise HTTPException(status_code=404, detail="Endpoint not found")
-    
+    if endpoint.group_id != group_id:
+        raise HTTPException(status_code=404, detail="Endpoint not found in this group")
     return endpoint
 
-
-@router.put("/group/{group_id}/{endpoint_id}", response_model=EndpointResponse)
+@router.put("/groups/{group_id}/endpoints/{endpoint_id}", response_model=Endpoint)
 async def update_endpoint(
-    *,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    group_id: str,
-    endpoint_id: str,
-    endpoint_in: EndpointUpdate,
-) -> Any:
-    # Verify group exists and belongs to user
-    group = db.query(Group).filter(
-        Group.id == group_id,
-        Group.created_by_id == str(current_user.id),
-    ).first()
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
-    
-    endpoint = db.query(Endpoint).filter(
-        Endpoint.id == endpoint_id,
-        Endpoint.group_id == group_id,
-    ).first()
+    group_id: UUID,
+    endpoint_id: UUID,
+    endpoint_data: EndpointUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update an endpoint."""
+    repo = EndpointRepository(db)
+    endpoint = await repo.get_by_id(endpoint_id)
     if not endpoint:
         raise HTTPException(status_code=404, detail="Endpoint not found")
-    
-    for field, value in endpoint_in.dict(exclude_unset=True).items():
-        setattr(endpoint, field, value)
-    
-    db.add(endpoint)
-    db.commit()
-    db.refresh(endpoint)
-    return endpoint
+    if endpoint.group_id != group_id:
+        raise HTTPException(status_code=404, detail="Endpoint not found in this group")
+    updated_endpoint = await repo.update(endpoint_id, endpoint_data)
+    if not updated_endpoint:
+        raise HTTPException(status_code=404, detail="Endpoint not found")
+    return updated_endpoint
 
-
-@router.delete("/group/{group_id}/{endpoint_id}")
+@router.delete("/groups/{group_id}/endpoints/{endpoint_id}")
 async def delete_endpoint(
-    *,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    group_id: str,
-    endpoint_id: str,
-) -> Any:
-    # Verify group exists and belongs to user
-    group = db.query(Group).filter(
-        Group.id == group_id,
-        Group.created_by_id == str(current_user.id),
-    ).first()
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
-    
-    endpoint = db.query(Endpoint).filter(
-        Endpoint.id == endpoint_id,
-        Endpoint.group_id == group_id,
-    ).first()
+    group_id: UUID,
+    endpoint_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete an endpoint."""
+    repo = EndpointRepository(db)
+    endpoint = await repo.get_by_id(endpoint_id)
     if not endpoint:
         raise HTTPException(status_code=404, detail="Endpoint not found")
-    
-    db.delete(endpoint)
-    db.commit()
-    return {"status": "success"} 
+    if endpoint.group_id != group_id:
+        raise HTTPException(status_code=404, detail="Endpoint not found in this group")
+    success = await repo.delete(endpoint_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Endpoint not found")
+    return {"message": "Endpoint deleted successfully"} 

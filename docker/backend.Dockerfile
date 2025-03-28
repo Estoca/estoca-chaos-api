@@ -32,10 +32,13 @@ WORKDIR /app
 COPY backend/pyproject.toml backend/poetry.lock ./
 
 # Install dependencies
-RUN poetry install --no-dev --no-interaction --no-ansi
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi --only main
 
 # Copy application code
 COPY backend/app ./app
+COPY backend/alembic ./alembic
+COPY backend/alembic.ini .
 
 # Run the application
 CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"] 
