@@ -3,10 +3,11 @@
 import { notFound } from "next/navigation"
 import { EndpointList } from "@/components/features/endpoints/endpoint-list"
 import { useGroups } from "@/hooks/use-groups"
+import { type UUID } from "@/types/endpoint"
 
 interface GroupDetailPageProps {
   params: {
-    groupId: string
+    groupId: UUID
   }
 }
 

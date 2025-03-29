@@ -1,30 +1,17 @@
 import { EndpointForm } from "@/components/features/endpoints/endpoint-form"
 import { useEndpoints } from "@/hooks/use-endpoints"
-
-interface Endpoint {
-  id: string
-  name: string
-  description: string
-  max_wait_time: number
-  chaos_mode: boolean
-  response_schema: Record<string, any>
-  response_status_code: number
-  response_body: string
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
-  headers: any[]
-  url_parameters: any[]
-}
+import { type UUID } from "@/types/endpoint"
 
 interface EditEndpointPageProps {
   params: {
-    groupId: string
-    endpointId: string
+    groupId: UUID
+    endpointId: UUID
   }
 }
 
 export default function EditEndpointPage({ params }: EditEndpointPageProps) {
   const { endpoints } = useEndpoints(params.groupId)
-  const endpoint = endpoints.find((e: { id: string }) => e.id === params.endpointId) as Endpoint | undefined
+  const endpoint = endpoints.find((e) => e.id === params.endpointId)
 
   if (!endpoint) {
     return null
@@ -45,9 +32,10 @@ export default function EditEndpointPage({ params }: EditEndpointPageProps) {
           initialData={{
             name: endpoint.name,
             description: endpoint.description,
+            path: endpoint.path,
             max_wait_time: endpoint.max_wait_time,
             chaos_mode: endpoint.chaos_mode,
-            response_schema: endpoint.response_schema,
+            response_schema: JSON.stringify(endpoint.response_schema, null, 2),
             response_status_code: endpoint.response_status_code,
             response_body: endpoint.response_body,
             method: endpoint.method,

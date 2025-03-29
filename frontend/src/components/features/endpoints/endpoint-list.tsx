@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useEndpoints } from "@/hooks/use-endpoints"
-import { type Endpoint } from "@/types/endpoint"
+import { type Endpoint, type UUID } from "@/types/endpoint"
 import { PlusIcon } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 
 interface EndpointListProps {
-  groupId: string
+  groupId: UUID
 }
 
 export function EndpointList({ groupId }: EndpointListProps) {

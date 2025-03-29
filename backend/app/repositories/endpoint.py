@@ -2,6 +2,7 @@ from typing import List, Optional
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.endpoint import Endpoint
 from app.schemas.endpoint import EndpointCreate, EndpointUpdate
@@ -22,13 +23,17 @@ class EndpointRepository:
 
     async def get_by_id(self, endpoint_id: UUID) -> Optional[Endpoint]:
         result = await self.session.execute(
-            select(Endpoint).where(Endpoint.id == endpoint_id)
+            select(Endpoint)
+            .options(selectinload(Endpoint.headers), selectinload(Endpoint.url_parameters))
+            .where(Endpoint.id == endpoint_id)
         )
         return result.scalar_one_or_none()
 
     async def get_by_group_id(self, group_id: UUID) -> List[Endpoint]:
         result = await self.session.execute(
-            select(Endpoint).where(Endpoint.group_id == group_id)
+            select(Endpoint)
+            .options(selectinload(Endpoint.headers), selectinload(Endpoint.url_parameters))
+            .where(Endpoint.group_id == group_id)
         )
         return list(result.scalars().all())
 

@@ -26,7 +26,7 @@ class EndpointBase(BaseModel):
     method: str
     max_wait_time: Optional[int] = 0
     chaos_mode: Optional[bool] = True
-    response_schema: Optional[Json] = None
+    response_schema: Optional[Dict[str, Any]] = None
     response_status_code: Optional[int] = 200
     response_body: Optional[str] = None
     headers: List[HeaderBase] = Field(default_factory=list, description="Expected headers")

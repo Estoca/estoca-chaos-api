@@ -1,22 +1,26 @@
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
+export type UUID = string
 
 export interface Endpoint {
-  id: string
+  id: UUID
   name: string
   description: string
+  path: string
   method: HttpMethod
   max_wait_time: number
   chaos_mode: boolean
   response_schema: Record<string, any>
   response_status_code: number
   response_body: string
-  headers: any[]
-  url_parameters: any[]
+  group_id: UUID
+  created_by_id: UUID
+  headers: Header[]
+  url_parameters: UrlParameter[]
 }
 
 export interface Header {
-  id: string
-  endpoint_id: string
+  id: UUID
+  endpoint_id: UUID
   name: string
   value: string
   required: boolean
@@ -25,8 +29,8 @@ export interface Header {
 }
 
 export interface UrlParameter {
-  id: string
-  endpoint_id: string
+  id: UUID
+  endpoint_id: UUID
   name: string
   value: string
   required: boolean
@@ -37,11 +41,14 @@ export interface UrlParameter {
 export interface CreateEndpointInput {
   name: string
   description: string
+  path: string
+  method: HttpMethod
   max_wait_time: number
   chaos_mode: boolean
   response_schema: Record<string, any>
   response_status_code: number
   response_body: string
+  group_id: UUID
   headers?: Header[]
   url_parameters?: UrlParameter[]
 }

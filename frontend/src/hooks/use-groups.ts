@@ -4,6 +4,7 @@ import api from "@/lib/axios"
 import axios from "axios"
 
 import { type Group } from "@/types/group"
+import { type UUID } from "@/types/endpoint"
 
 export function useGroups() {
   const queryClient = useQueryClient()
@@ -64,7 +65,7 @@ export function useGroups() {
       id,
       data,
     }: {
-      id: string
+      id: UUID
       data: { name: string; description: string }
     }) => {
       try {
@@ -98,7 +99,7 @@ export function useGroups() {
   })
 
   const deleteGroup = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (id: UUID) => {
       try {
         await api.delete(`/groups/${id}`)
       } catch (error: unknown) {

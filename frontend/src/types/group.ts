@@ -1,10 +1,12 @@
+import { type UUID } from "./endpoint"
+
 export interface Group {
-  id: string
+  id: UUID
   name: string
   description: string | null
   created_at: string
   updated_at: string
-  created_by_id: string
+  created_by_id: UUID
   deleted_at: string | null
   created_at_epoch: number
 }

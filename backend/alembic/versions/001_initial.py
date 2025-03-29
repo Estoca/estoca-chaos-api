@@ -23,6 +23,7 @@ def upgrade() -> None:
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('email', sa.String(), nullable=False),
         sa.Column('name', sa.String(), nullable=False),
+        sa.Column('picture', sa.String(), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
@@ -32,9 +33,9 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_user_email'), 'user', ['email'], unique=True)
 
-    # Create group table
+    # Create groups table
     op.create_table(
-        'group',
+        'groups',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('name', sa.String(), nullable=False),
         sa.Column('description', sa.String(), nullable=True),
@@ -47,17 +48,19 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id')
     )
 
-    # Create endpoint table
+    # Create endpoints table
     op.create_table(
-        'endpoint',
+        'endpoints',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('group_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('name', sa.String(), nullable=False),
         sa.Column('description', sa.String(), nullable=True),
-        sa.Column('max_wait_time', sa.Integer(), nullable=False),
-        sa.Column('chaos_mode', sa.Boolean(), nullable=False),
-        sa.Column('response_schema', postgresql.JSON(), nullable=False),
-        sa.Column('response_status_code', sa.Integer(), nullable=False),
+        sa.Column('path', sa.String(), nullable=False),
+        sa.Column('method', sa.String(), nullable=False),
+        sa.Column('max_wait_time', sa.Integer(), nullable=False, server_default='0'),
+        sa.Column('chaos_mode', sa.Boolean(), nullable=False, server_default='true'),
+        sa.Column('response_schema', postgresql.JSON(), nullable=True),
+        sa.Column('response_status_code', sa.Integer(), nullable=False, server_default='200'),
         sa.Column('response_body', sa.String(), nullable=True),
         sa.Column('created_by_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -65,13 +68,13 @@ def upgrade() -> None:
         sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('created_at_epoch', sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(['created_by_id'], ['user.id'], ),
-        sa.ForeignKeyConstraint(['group_id'], ['group.id'], ),
+        sa.ForeignKeyConstraint(['group_id'], ['groups.id'], ),
         sa.PrimaryKeyConstraint('id')
     )
 
-    # Create header table
+    # Create headers table
     op.create_table(
-        'header',
+        'headers',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('endpoint_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('name', sa.String(), nullable=False),
@@ -83,13 +86,13 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('created_at_epoch', sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(['endpoint_id'], ['endpoint.id'], ),
+        sa.ForeignKeyConstraint(['endpoint_id'], ['endpoints.id'], ),
         sa.PrimaryKeyConstraint('id')
     )
 
-    # Create url_parameter table
+    # Create url_parameters table
     op.create_table(
-        'urlparameter',
+        'url_parameters',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('endpoint_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('name', sa.String(), nullable=False),
@@ -101,15 +104,15 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('created_at_epoch', sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(['endpoint_id'], ['endpoint.id'], ),
+        sa.ForeignKeyConstraint(['endpoint_id'], ['endpoints.id'], ),
         sa.PrimaryKeyConstraint('id')
     )
 
 
 def downgrade() -> None:
-    op.drop_table('urlparameter')
-    op.drop_table('header')
-    op.drop_table('endpoint')
-    op.drop_table('group')
+    op.drop_table('url_parameters')
+    op.drop_table('headers')
+    op.drop_table('endpoints')
+    op.drop_table('groups')
     op.drop_index(op.f('ix_user_email'), table_name='user')
     op.drop_table('user') 

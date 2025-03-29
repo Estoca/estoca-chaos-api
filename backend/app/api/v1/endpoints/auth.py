@@ -1,10 +1,10 @@
 from datetime import timedelta
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status, Header
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 import requests
 
-from app.api.v1.dependencies import get_db, get_current_user
+from app.api.deps import get_db, get_current_user
 from app.core.config import settings
 from app.services.auth import create_access_token, get_user_by_email, create_user
 
@@ -13,7 +13,7 @@ router = APIRouter()
 
 @router.post("/google")
 async def google_auth(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     authorization: str = Header(...)
 ) -> Any:
     # Remove 'Bearer ' prefix if present
@@ -34,9 +34,9 @@ async def google_auth(
         )
     
     # Get or create user
-    user = get_user_by_email(db, email=user_info['email'])
+    user = await get_user_by_email(db, email=user_info['email'])
     if not user:
-        user = create_user(
+        user = await create_user(
             db,
             email=user_info['email'],
             name=user_info.get('name', user_info['email'].split("@")[0])

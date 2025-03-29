@@ -1,10 +1,14 @@
 import os
+import sys
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+
+# Add the app directory to the Python path
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__))))
 
 from app.core.config import settings
 from app.db.base import Base
@@ -33,21 +37,37 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 def run_migrations_online() -> None:
-    configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = get_url()
-    connectable = engine_from_config(
-        configuration,
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    """Run migrations in 'online' mode.
 
-    with connectable.connect() as connection:
+    In this scenario we need to create an Engine
+    and associate a connection with the context.
+    """
+    # Skip database connection when generating migrations
+    if context.get_x_argument(as_dictionary=True).get('command') == 'revision':
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            target_metadata=target_metadata,
+            version_table="alembic_version",
+            include_schemas=True,
         )
-
         with context.begin_transaction():
             context.run_migrations()
+    else:
+        configuration = config.get_section(config.config_ini_section)
+        configuration["sqlalchemy.url"] = get_url()
+        connectable = engine_from_config(
+            configuration,
+            prefix="sqlalchemy.",
+            poolclass=pool.NullPool,
+        )
+
+        with connectable.connect() as connection:
+            context.configure(
+                connection=connection,
+                target_metadata=target_metadata
+            )
+
+            with context.begin_transaction():
+                context.run_migrations()
 
 if context.is_offline_mode():
     run_migrations_offline()

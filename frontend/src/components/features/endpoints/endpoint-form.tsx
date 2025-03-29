@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useRouter } from "next/navigation"
-
+import { useEndpoints } from "@/hooks/use-endpoints"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -16,19 +16,26 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { useEndpoints } from "@/hooks/use-endpoints"
-import { type Header, type HttpMethod, type UrlParameter } from "@/types/endpoint"
+import { Switch } from "@/components/ui/switch"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { ParameterList } from "./parameter-list"
 
 const formSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  description: z.string().min(10, "Description must be at least 10 characters"),
-  max_wait_time: z.number().min(0, "Wait time must be 0 or greater"),
-  chaos_mode: z.boolean().default(true),
-  response_schema: z.record(z.any()),
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+  path: z.string().min(1, "Path is required"),
+  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
+  max_wait_time: z.number().min(0),
+  chaos_mode: z.boolean(),
+  response_schema: z.string().optional(),
   response_status_code: z.number().min(100).max(599),
-  response_body: z.string(),
-  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"] as const),
+  response_body: z.string().optional(),
   headers: z.array(z.any()).default([]),
   url_parameters: z.array(z.any()).default([]),
 })
@@ -50,12 +57,13 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
     defaultValues: initialData || {
       name: "",
       description: "",
+      path: "",
+      method: "GET",
       max_wait_time: 0,
       chaos_mode: true,
-      response_schema: {},
+      response_schema: "{}",
       response_status_code: 200,
       response_body: "",
-      method: "GET",
       headers: [],
       url_parameters: [],
     },
@@ -63,11 +71,19 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
 
   async function onSubmit(values: FormValues) {
     try {
-      if (endpointId) {
-        await updateEndpoint({ id: endpointId, data: values })
-      } else {
-        await createEndpoint(values)
+      const submitValues = {
+        ...values,
+        response_schema: values.response_schema ? JSON.parse(values.response_schema) : {},
+        description: values.description || "",
+        response_body: values.response_body || "",
       }
+
+      if (endpointId) {
+        await updateEndpoint({ id: endpointId, data: submitValues })
+      } else {
+        await createEndpoint(submitValues)
+      }
+
       router.push(`/groups/${groupId}`)
     } catch (error) {
       console.error("Failed to save endpoint:", error)
@@ -97,11 +113,20 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea
-                  placeholder="Enter endpoint description"
-                  className="resize-none"
-                  {...field}
-                />
+                <Textarea placeholder="Enter endpoint description" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="path"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Path</FormLabel>
+              <FormControl>
+                <Input placeholder="Enter endpoint path" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -113,18 +138,20 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
           render={({ field }) => (
             <FormItem>
               <FormLabel>Method</FormLabel>
-              <FormControl>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  {...field}
-                >
-                  <option value="GET">GET</option>
-                  <option value="POST">POST</option>
-                  <option value="PUT">PUT</option>
-                  <option value="PATCH">PATCH</option>
-                  <option value="DELETE">DELETE</option>
-                </select>
-              </FormControl>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select HTTP method" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="GET">GET</SelectItem>
+                  <SelectItem value="POST">POST</SelectItem>
+                  <SelectItem value="PUT">PUT</SelectItem>
+                  <SelectItem value="PATCH">PATCH</SelectItem>
+                  <SelectItem value="DELETE">DELETE</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -134,17 +161,34 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
           name="max_wait_time"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Max Wait Time (ms)</FormLabel>
+              <FormLabel>Max Wait Time (seconds)</FormLabel>
               <FormControl>
                 <Input
                   type="number"
                   min={0}
-                  placeholder="Enter max wait time in milliseconds"
+                  placeholder="Enter max wait time"
                   {...field}
                   onChange={(e) => field.onChange(Number(e.target.value))}
                 />
               </FormControl>
               <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="chaos_mode"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <FormLabel className="text-base">Chaos Mode</FormLabel>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
             </FormItem>
           )}
         />
@@ -177,6 +221,23 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
               <FormControl>
                 <Textarea
                   placeholder="Enter response body"
+                  className="resize-none font-mono"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="response_schema"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Response Schema</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Enter response schema (JSON)"
                   className="resize-none font-mono"
                   {...field}
                 />

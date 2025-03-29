@@ -10,12 +10,15 @@ class Endpoint(Base):
 
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
+    path = Column(String, nullable=False)
+    method = Column(String, nullable=False)
     max_wait_time = Column(Integer, nullable=False, default=0)
     chaos_mode = Column(Boolean, nullable=False, default=True)
     response_schema = Column(JSON, nullable=True)
     response_status_code = Column(Integer, nullable=False, default=200)
     response_body = Column(String, nullable=True)
     group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id"), nullable=False)
+    created_by_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
 
     # Relationships
     group = relationship("Group", back_populates="endpoints")

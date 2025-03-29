@@ -10,7 +10,7 @@ from app.schemas.endpoint import Endpoint, EndpointCreate, EndpointUpdate
 
 router = APIRouter()
 
-@router.get("/groups/{group_id}/endpoints", response_model=List[Endpoint])
+@router.get("/", response_model=List[Endpoint])
 async def list_endpoints(
     group_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -21,7 +21,7 @@ async def list_endpoints(
     endpoints = await repo.get_by_group_id(group_id)
     return endpoints
 
-@router.post("/groups/{group_id}/endpoints", response_model=Endpoint)
+@router.post("/", response_model=Endpoint)
 async def create_endpoint(
     group_id: UUID,
     endpoint_data: EndpointCreate,
@@ -33,7 +33,7 @@ async def create_endpoint(
     endpoint = await repo.create(endpoint_data, current_user.id)
     return endpoint
 
-@router.get("/groups/{group_id}/endpoints/{endpoint_id}", response_model=Endpoint)
+@router.get("/{endpoint_id}", response_model=Endpoint)
 async def get_endpoint(
     group_id: UUID,
     endpoint_id: UUID,
@@ -49,7 +49,7 @@ async def get_endpoint(
         raise HTTPException(status_code=404, detail="Endpoint not found in this group")
     return endpoint
 
-@router.put("/groups/{group_id}/endpoints/{endpoint_id}", response_model=Endpoint)
+@router.put("/{endpoint_id}", response_model=Endpoint)
 async def update_endpoint(
     group_id: UUID,
     endpoint_id: UUID,
@@ -69,7 +69,7 @@ async def update_endpoint(
         raise HTTPException(status_code=404, detail="Endpoint not found")
     return updated_endpoint
 
-@router.delete("/groups/{group_id}/endpoints/{endpoint_id}")
+@router.delete("/{endpoint_id}")
 async def delete_endpoint(
     group_id: UUID,
     endpoint_id: UUID,
