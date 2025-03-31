@@ -8,14 +8,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from uuid import UUID
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
+from faker import Faker
 
 from app.api.deps import get_db
+from app.utils.json_schema import generate_data_from_schema
 from app.models.endpoint import Endpoint
 from app.models.group import Group
-from app.services.json_schema import generate_from_schema
 
 router = APIRouter()
 
+# Initialize Faker instance
+fake = Faker()
 
 async def handle_mock_endpoint(
     request: Request,
@@ -51,12 +56,71 @@ async def handle_mock_endpoint(
             detail=f"No endpoint found with path '{endpoint_path}' and method '{request_method}' in group '{group.name}'"
         )
     
-    # Check if this is a chaos mode request
     is_chaos = request.url.path.endswith("/chaos")
+    chaos_effect = None # Initialize chaos effect
+
     if is_chaos and not endpoint.chaos_mode:
         raise HTTPException(status_code=404, detail="Chaos mode not enabled for this endpoint")
-    
-    # Validate headers
+
+    # Handle chaos mode selection first
+    if is_chaos:
+        chaos_effect = random.choice([
+            "timeout",
+            "error_500",
+            "slow_response",
+            "random_delay",
+            "random_body",
+            "random_valid_status",
+            "random_error_status",
+        ])
+        
+        if chaos_effect == "timeout":
+            await asyncio.sleep(30)
+            raise HTTPException(status_code=504, detail="Chaos Mode: Gateway Timeout Simulation")
+        elif chaos_effect == "error_500":
+            raise HTTPException(status_code=500, detail="Chaos Mode: Simulated Internal Server Error")
+        elif chaos_effect == "random_body":
+            random_data = {
+                "chaos_id": fake.uuid4(),
+                "chaos_message": fake.sentence(),
+                "chaos_payload": {"key": fake.word(), "value": fake.random_int(min=1, max=1000)}
+            }
+            return JSONResponse(content=random_data, status_code=200)
+        elif chaos_effect == "random_error_status":
+            error_status = random.choice([400, 401, 403, 404, 429, 500, 502, 503])
+            error_body = {"error": "Chaos Mode: Simulated Error", "status": error_status}
+            return JSONResponse(content=error_body, status_code=error_status)
+        elif chaos_effect == "slow_response":
+            await asyncio.sleep(random.uniform(1, 5))
+            # Fall through
+        elif chaos_effect == "random_delay":
+            await asyncio.sleep(random.uniform(0.1, 2))
+            # Fall through
+        elif chaos_effect == "random_valid_status":
+            # Set override status, then fall through
+            request.state.override_status_code = random.choice([200, 201, 202, 204])
+            # Fall through
+
+    # --- Request Body Validation --- (If applicable)
+    if request_method in ["POST", "PUT", "PATCH"] and endpoint.request_body_schema:
+        try:
+            request_body = await request.json()
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid JSON received in request body: {e}",
+            )
+        try:
+            schema_to_validate = endpoint.request_body_schema
+            if not isinstance(schema_to_validate, dict):
+                 raise HTTPException(status_code=500, detail="Request body schema not configured correctly.")
+            validate(instance=request_body, schema=schema_to_validate)
+        except ValidationError as e:
+            raise HTTPException(status_code=400, detail=f"Request body validation failed: {e.message} on path \'{list(e.path)}\'")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"An unexpected error occurred during request body validation: {e}")
+
+    # --- Header/Parameter Validation --- (If applicable)
     headers_list = endpoint.headers or []
     for header in headers_list:
         header_value = request.headers.get(header.name)
@@ -80,53 +144,43 @@ async def handle_mock_endpoint(
                 detail=f"Invalid parameter: {param.name}",
             )
     
-    # Simulate delay if configured
-    if endpoint.max_wait_time > 0:
-        await asyncio.sleep(random.uniform(0, endpoint.max_wait_time))
+    # --- Simulate Configured Delay (if chaos didn't already delay/exit) ---
+    if endpoint.max_wait_time > 0 and chaos_effect not in ["slow_response", "random_delay", "timeout"]:
+         await asyncio.sleep(random.uniform(0, endpoint.max_wait_time))
     
-    # Handle chaos mode
-    if is_chaos:
-        # Randomly choose a chaos effect
-        chaos_effect = random.choice([
-            "timeout",
-            "error_500",
-            "slow_response",
-            "random_delay",
-            "random_body",
-            "random_header",
-            "random_status",
-        ])
-        
-        if chaos_effect == "timeout":
-            await asyncio.sleep(30)  # Simulate timeout
-            raise HTTPException(status_code=504, detail="Gateway Timeout")
-        elif chaos_effect == "error_500":
-            raise HTTPException(status_code=500, detail="Internal Server Error")
-        elif chaos_effect == "slow_response":
-            await asyncio.sleep(random.uniform(1, 5))
-        elif chaos_effect == "random_delay":
-            await asyncio.sleep(random.uniform(0.1, 2))
-        elif chaos_effect == "random_body":
-            return JSONResponse(content={"error": "Random error message"}, status_code=200)
-        elif chaos_effect == "random_header":
-            return JSONResponse(content={"data": "Success"}, status_code=random.choice([200, 201, 202, 203]))
-        elif chaos_effect == "random_status":
-            return JSONResponse(content={"data": "Success"}, status_code=random.choice([400, 401, 403, 404, 500, 502, 503, 504]))
-    
-    # Generate response based on schema or return static body
-    if endpoint.response_body:
+    # --- Response Generation --- 
+    final_status_code = endpoint.response_status_code
+    response_content: Any = {}
+    response_media_type = "application/json"
+
+    if endpoint.response_schema:
         try:
-            if isinstance(endpoint.response_body, str):
-                response_body = json.loads(endpoint.response_body)
-            else:
-                response_body = endpoint.response_body
-            return JSONResponse(content=response_body, status_code=endpoint.response_status_code)
+            schema_data = endpoint.response_schema
+            if isinstance(schema_data, str):
+                try: schema_data = json.loads(schema_data)
+                except json.JSONDecodeError: raise HTTPException(status_code=500, detail="Invalid JSON schema definition stored.")
+            if not isinstance(schema_data, dict): raise HTTPException(status_code=500, detail="Response schema is not a valid dictionary.")
+            # Use the correct function name here
+            response_content = generate_data_from_schema(schema_data) 
+        except HTTPException as http_exc: raise http_exc
+        except Exception as e: raise HTTPException(status_code=500, detail=f"Failed to generate response from schema: {e}")
+    elif endpoint.response_body:
+        try:
+            response_content = json.loads(endpoint.response_body)
         except json.JSONDecodeError:
-            # If response_body is not valid JSON, return it as a plain text
-            return PlainTextResponse(content=endpoint.response_body, status_code=endpoint.response_status_code)
-    
-    response_data = generate_from_schema(endpoint.response_schema)
-    return JSONResponse(content=response_data, status_code=endpoint.response_status_code)
+            response_content = endpoint.response_body
+            response_media_type = "text/plain"
+
+    # --- Apply Chaos Status Code Override --- 
+    if hasattr(request.state, 'override_status_code'):
+        final_status_code = request.state.override_status_code
+
+    # --- Return Final Response --- 
+    if response_media_type == "application/json":
+        return JSONResponse(content=response_content, status_code=final_status_code)
+    else:
+        # Ensure content is string for PlainTextResponse
+        return PlainTextResponse(content=str(response_content), status_code=final_status_code)
 
 
 # Dynamic route handler for all HTTP methods
