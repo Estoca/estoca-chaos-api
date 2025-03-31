@@ -7,6 +7,21 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { signOut, useSession } from "next-auth/react"
 import { Home, Plus, Settings, LogOut, FolderOpen } from "lucide-react"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar"
+
+function getInitials(name?: string | null): string {
+  if (!name) return "U"
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase()
+}
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -64,14 +79,32 @@ export function Sidebar() {
           })}
         </nav>
       </ScrollArea>
-      <div className="border-t p-4">
+      <div className="border-t p-3 flex items-center justify-between">
+        {session?.user ? (
+          <div className="flex items-center gap-2 overflow-hidden">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={session.user.image || undefined} alt={session.user.name || "User"} />
+              <AvatarFallback>{getInitials(session.user.name)}</AvatarFallback>
+            </Avatar>
+            <div className="text-sm overflow-hidden">
+              <p className="font-medium truncate">{session.user.name}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {session.user.email}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="h-8"></div>
+        )}
         <Button
           variant="ghost"
-          className="w-full justify-start"
+          size="icon"
+          className="flex-shrink-0"
           onClick={() => signOut()}
+          title="Sign Out"
         >
-          <LogOut className="mr-2 h-4 w-4" />
-          Sign Out
+          <LogOut className="h-4 w-4" />
+          <span className="sr-only">Sign Out</span>
         </Button>
       </div>
     </div>

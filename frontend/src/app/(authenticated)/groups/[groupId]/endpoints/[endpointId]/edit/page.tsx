@@ -1,3 +1,5 @@
+"use client"
+
 import { EndpointForm } from "@/components/features/endpoints/endpoint-form"
 import { useEndpoints } from "@/hooks/use-endpoints"
 import { type UUID } from "@/types/endpoint"

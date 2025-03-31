@@ -91,7 +91,6 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
     try {
       // Safely parse response schema
       const responseSchema = safeJsonParse(values.response_schema)
-      const requestBodySchema = safeJsonParse(values.request_body_schema)
       
       // Normalize data to prevent serialization issues
       const sanitizedHeaders = values.headers.map(header => ({
@@ -107,7 +106,6 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
       const submitValues = {
         ...values,
         response_schema: responseSchema,
-        request_body_schema: requestBodySchema,
         description: values.description || "",
         response_body: values.response_body || "",
         headers: sanitizedHeaders,
