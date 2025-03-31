@@ -13,6 +13,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -43,7 +44,12 @@ import { cn } from "@/lib/utils"
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
-  path: z.string().min(1, "Path is required"),
+  path: z.string()
+    .min(1, "Path is required")
+    .regex(
+      /^[a-z0-9_-]+$/,
+      "Path can only contain lowercase letters, numbers, underscores, and hyphens (no spaces or slashes)"
+    ),
   method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
   max_wait_time: z.number().min(0),
   chaos_mode: z.boolean(),
@@ -76,6 +82,7 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
     response_schema?: string;
     request_body_schema?: string;
   }>({})
+  const [pathError, setPathError] = useState<string | null>(null)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -172,6 +179,20 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
       })
     }
   }
+
+  const validatePath = (value: string) => {
+    if (!value) {
+      setPathError("Path is required");
+      return;
+    }
+    
+    if (!/^[a-z0-9_-]+$/.test(value)) {
+      setPathError("Path can only contain lowercase letters, numbers, underscores, and hyphens (no spaces or slashes)");
+      return;
+    }
+    
+    setPathError(null);
+  };
 
   async function onSubmit(values: FormValues) {
     try {
@@ -326,9 +347,33 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
             <FormItem>
               <FormLabel>Path</FormLabel>
               <FormControl>
-                <Input placeholder="Enter endpoint path" {...field} />
+                <Input 
+                  placeholder="Enter endpoint path" 
+                  className={cn(
+                    pathError && "border-destructive focus-visible:ring-destructive"
+                  )}
+                  {...field} 
+                  onChange={(e) => {
+                    field.onChange(e);
+                    // Clear errors when user types
+                    if (pathError) {
+                      setPathError(null);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    field.onBlur();
+                    validatePath(e.target.value);
+                  }}
+                />
               </FormControl>
-              <FormMessage />
+              <FormDescription>
+                Path can only contain lowercase letters, numbers, underscores, and hyphens (e.g., "users-profile" or "api_v1_items").
+              </FormDescription>
+              {pathError ? (
+                <div className="text-sm font-medium text-destructive">{pathError}</div>
+              ) : (
+                <FormMessage />
+              )}
             </FormItem>
           )}
         />

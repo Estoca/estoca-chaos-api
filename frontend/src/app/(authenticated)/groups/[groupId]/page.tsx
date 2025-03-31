@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Terminal } from "lucide-react"
 import { EditGroupModal } from "@/components/features/groups/edit-group-modal"
+import { DeleteGroupButton } from "@/components/features/groups/delete-group-button"
 
 interface GroupDetailPageProps {
   params: {
@@ -53,7 +54,10 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
       <div className="mb-8">
         <div className="flex items-center justify-between gap-4 mb-2">
           <h1 className="text-3xl font-bold truncate">{group.name}</h1>
-          <EditGroupModal group={group} />
+          <div className="flex items-center gap-2">
+            <DeleteGroupButton group={group} />
+            <EditGroupModal group={group} />
+          </div>
         </div>
         <p className="text-muted-foreground">{group.description || "No description provided."}</p>
       </div>

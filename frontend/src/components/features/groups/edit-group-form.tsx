@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -16,10 +18,17 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { type Group } from "@/types/group"
+import { cn } from "@/lib/utils"
 
 // Zod schema for form validation
 const formSchema = z.object({
-  name: z.string().min(1, "Group name is required"),
+  name: z
+    .string()
+    .min(1, "Group name is required")
+    .regex(
+      /^[a-z0-9_-]+$/,
+      "Name can only contain lowercase letters, numbers, underscores, and hyphens (no spaces)"
+    ),
   description: z.string().optional(),
 })
 
@@ -38,6 +47,8 @@ export function EditGroupForm({
   isSubmitting,
   onCancel,
 }: EditGroupFormProps) {
+  const [nameError, setNameError] = useState<string | null>(null)
+  
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -45,6 +56,20 @@ export function EditGroupForm({
       description: initialData.description || "",
     },
   })
+
+  const validateName = (value: string) => {
+    if (!value) {
+      setNameError("Name is required")
+      return
+    }
+    
+    if (!/^[a-z0-9_-]+$/.test(value)) {
+      setNameError("Name can only contain lowercase letters, numbers, underscores, and hyphens (no spaces)")
+      return
+    }
+    
+    setNameError(null)
+  }
 
   return (
     <Form {...form}>
@@ -56,9 +81,33 @@ export function EditGroupForm({
             <FormItem>
               <FormLabel>Group Name</FormLabel>
               <FormControl>
-                <Input placeholder="Enter group name" {...field} />
+                <Input 
+                  placeholder="Enter group name" 
+                  className={cn(
+                    nameError && "border-destructive focus-visible:ring-destructive"
+                  )}
+                  {...field} 
+                  onChange={(e) => {
+                    field.onChange(e)
+                    // Clear errors when user types
+                    if (nameError) {
+                      setNameError(null)
+                    }
+                  }}
+                  onBlur={(e) => {
+                    field.onBlur()
+                    validateName(e.target.value)
+                  }}
+                />
               </FormControl>
-              <FormMessage />
+              <FormDescription>
+                Name can only contain lowercase letters, numbers, underscores, and hyphens (e.g., "my-group" or "test_group").
+              </FormDescription>
+              {nameError ? (
+                <div className="text-sm font-medium text-destructive">{nameError}</div>
+              ) : (
+                <FormMessage />
+              )}
             </FormItem>
           )}
         />

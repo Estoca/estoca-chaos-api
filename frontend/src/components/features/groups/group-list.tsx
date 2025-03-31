@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { formatDistanceToNow } from "date-fns"
+import { GroupCard } from "./group-card"
 
 export function GroupList() {
   const { groups, isLoading } = useGroups()
@@ -53,19 +53,7 @@ export function GroupList() {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {groups.map((group) => (
-        <Link key={group.id} href={`/groups/${group.id}`}>
-          <Card className="h-full transition-colors hover:bg-accent">
-            <CardHeader>
-              <CardTitle>{group.name}</CardTitle>
-              <CardDescription>
-                Created {formatDistanceToNow(new Date(group.created_at), { addSuffix: true })}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">{group.description}</p>
-            </CardContent>
-          </Card>
-        </Link>
+        <GroupCard key={group.id} group={group} />
       ))}
     </div>
   )
