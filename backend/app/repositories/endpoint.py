@@ -87,9 +87,52 @@ class EndpointRepository:
                         status_code=status.HTTP_409_CONFLICT,
                         detail=f"An endpoint with path '{endpoint_data.path or endpoint.path}' and method '{endpoint_data.method or endpoint.method}' already exists in this group"
                     )
-                    
-            for key, value in endpoint_data.model_dump(exclude_unset=True).items():
+            
+            # Process data to update
+            update_data = endpoint_data.model_dump(exclude_unset=True)
+            
+            # Handle special cases for relationship fields
+            headers_data = update_data.pop('headers', None)
+            url_parameters_data = update_data.pop('url_parameters', None)
+            
+            # Update the regular fields
+            for key, value in update_data.items():
                 setattr(endpoint, key, value)
+                
+            # Handle headers update if provided
+            if headers_data is not None:
+                # Remove existing headers
+                for header in endpoint.headers[:]:
+                    await self.session.delete(header)
+                
+                # Create new headers
+                from app.models.header import Header
+                new_headers = []
+                for header_dict in headers_data:
+                    header = Header(**header_dict, endpoint_id=endpoint_id)
+                    self.session.add(header)
+                    new_headers.append(header)
+                
+                # Will be refreshed during commit
+                endpoint.headers = new_headers
+                
+            # Handle url_parameters update if provided
+            if url_parameters_data is not None:
+                # Remove existing url parameters
+                for param in endpoint.url_parameters[:]:
+                    await self.session.delete(param)
+                
+                # Create new url parameters
+                from app.models.url_parameter import UrlParameter
+                new_params = []
+                for param_dict in url_parameters_data:
+                    param = UrlParameter(**param_dict, endpoint_id=endpoint_id)
+                    self.session.add(param)
+                    new_params.append(param)
+                
+                # Will be refreshed during commit
+                endpoint.url_parameters = new_params
+                
             await self.session.commit()
             await self.session.refresh(endpoint)
         return endpoint
