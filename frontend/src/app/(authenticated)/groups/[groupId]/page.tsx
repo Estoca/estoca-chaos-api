@@ -7,6 +7,7 @@ import { type UUID } from "@/types/endpoint"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Terminal } from "lucide-react"
+import { EditGroupModal } from "@/components/features/groups/edit-group-modal"
 
 interface GroupDetailPageProps {
   params: {
@@ -50,7 +51,10 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
   return (
     <div className="container mx-auto py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">{group.name}</h1>
+        <div className="flex items-center justify-between gap-4 mb-2">
+          <h1 className="text-3xl font-bold truncate">{group.name}</h1>
+          <EditGroupModal group={group} />
+        </div>
         <p className="text-muted-foreground">{group.description || "No description provided."}</p>
       </div>
       <EndpointList groupId={params.groupId} />
