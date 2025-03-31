@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ParameterList } from "./parameter-list"
-import { safeJsonParse } from "@/lib/utils"
+import { generateExampleFromSchema, safeJsonParse } from "@/lib/utils"
 import { Info } from "lucide-react"
 import {
   Dialog,
@@ -37,6 +37,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
+import { useState } from "react"
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -67,6 +68,9 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
   const router = useRouter()
   const { createEndpoint, updateEndpoint, isLoading } = useEndpoints(groupId)
   const { toast } = useToast()
+  const [exampleDialogOpen, setExampleDialogOpen] = useState(false)
+  const [exampleJson, setExampleJson] = useState("")
+  const [exampleTitle, setExampleTitle] = useState("")
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -105,6 +109,36 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
         description: error instanceof Error ? error.message : "Unknown syntax error.",
         variant: "destructive",
       })
+    }
+  }
+
+  const handleGenerateExample = (fieldName: "response_schema" | "request_body_schema") => {
+    const jsonString = form.getValues(fieldName);
+    if (!jsonString) {
+      toast({ title: "Info", description: "Field is empty." });
+      return;
+    }
+    
+    try {
+      const schema = JSON.parse(jsonString);
+      const example = generateExampleFromSchema(schema);
+      
+      // Set dialog title based on field
+      setExampleTitle(fieldName === "response_schema" 
+        ? "Example Response" 
+        : "Example Request Body");
+      
+      // Set example JSON for the dialog
+      setExampleJson(JSON.stringify(example, null, 2));
+      
+      // Open the dialog
+      setExampleDialogOpen(true);
+    } catch (error) {
+      toast({
+        title: "Invalid JSON",
+        description: error instanceof Error ? error.message : "Unknown syntax error.",
+        variant: "destructive",
+      });
     }
   }
 
@@ -400,7 +434,15 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
                     {...field}
                   />
                 </FormControl>
-                <div className="flex justify-end mt-1">
+                <div className="flex justify-end mt-1 space-x-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleGenerateExample("response_schema")}
+                  >
+                    Generate Example
+                  </Button>
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -490,7 +532,15 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
                     {...field}
                   />
                 </FormControl>
-                <div className="flex justify-end mt-1">
+                <div className="flex justify-end mt-1 space-x-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleGenerateExample("request_body_schema")}
+                  >
+                    Generate Example
+                  </Button>
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -551,6 +601,27 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
             Cancel
           </Button>
         </div>
+        {/* Example JSON Dialog */}
+        <Dialog open={exampleDialogOpen} onOpenChange={setExampleDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{exampleTitle}</DialogTitle>
+              <DialogDescription>
+                This is an example of how the data might look based on your schema.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 text-sm py-4">
+              <div>
+                <pre className="text-xs bg-muted p-4 rounded overflow-x-auto whitespace-pre-wrap">
+                  {exampleJson}
+                </pre>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Note: Dynamic values using $provider will be different each time they are generated at runtime.
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
       </form>
     </Form>
   )
