@@ -4,6 +4,7 @@ import { EndpointForm } from "@/components/features/endpoints/endpoint-form"
 import { useEndpoints } from "@/hooks/use-endpoints"
 import { type UUID } from "@/types/endpoint"
 import { safeJsonStringify } from "@/lib/utils"
+import { DeleteEndpointButton } from "@/components/features/endpoints/delete-endpoint-button"
 
 interface EditEndpointPageProps {
   params: {
@@ -93,15 +94,33 @@ export default function EditEndpointPage({ params }: EditEndpointPageProps) {
             name: sanitizedEndpoint.name,
             description: sanitizedEndpoint.description,
             path: sanitizedEndpoint.path,
+            method: sanitizedEndpoint.method,
             max_wait_time: sanitizedEndpoint.max_wait_time,
             chaos_mode: sanitizedEndpoint.chaos_mode,
-            response_schema: safeJsonStringify(sanitizedEndpoint.response_schema),
             response_status_code: sanitizedEndpoint.response_status_code,
+            // Determine type based on schema existence
+            response_type: (sanitizedEndpoint.response_schema && Object.keys(sanitizedEndpoint.response_schema).length > 0) 
+                            ? "dynamic" 
+                            : "fixed",
+            // Provide default {} BEFORE stringifying if null/undefined
+            response_schema: safeJsonStringify(sanitizedEndpoint.response_schema || {}),
             response_body: sanitizedEndpoint.response_body,
-            method: sanitizedEndpoint.method,
+            // Provide default {} BEFORE stringifying if null/undefined
+            request_body_schema: safeJsonStringify(sanitizedEndpoint.request_body_schema || {}),
             headers: sanitizedEndpoint.headers || [],
             url_parameters: sanitizedEndpoint.url_parameters || [],
           }}
+        />
+      </div>
+      <div className="pt-6 border-t border-destructive/50">
+        <h4 className="text-md font-medium text-destructive mb-2">Danger Zone</h4>
+        <p className="text-sm text-muted-foreground mb-4">
+          Deleting this endpoint cannot be undone.
+        </p>
+        <DeleteEndpointButton 
+          groupId={params.groupId} 
+          endpointId={params.endpointId} 
+          endpointName={sanitizedEndpoint.name}
         />
       </div>
     </div>

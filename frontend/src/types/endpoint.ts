@@ -16,6 +16,11 @@ export interface Endpoint {
   created_by_id: UUID
   headers: Header[]
   url_parameters: UrlParameter[]
+  request_body_schema?: Record<string, any>
+  created_at: string
+  updated_at: string
+  deleted_at?: string | null
+  created_at_epoch: number
 }
 
 export interface Header {
@@ -24,8 +29,8 @@ export interface Header {
   name: string
   value: string
   required: boolean
-  default_response: Record<string, any>
-  default_status_code: number
+  default_response?: Record<string, any>
+  default_status_code?: number
 }
 
 export interface UrlParameter {
@@ -34,8 +39,8 @@ export interface UrlParameter {
   name: string
   value: string
   required: boolean
-  default_response: Record<string, any>
-  default_status_code: number
+  default_response?: Record<string, any>
+  default_status_code?: number
 }
 
 export interface CreateEndpointInput {
@@ -53,4 +58,11 @@ export interface CreateEndpointInput {
   url_parameters?: UrlParameter[]
 }
 
-export interface UpdateEndpointInput extends Partial<CreateEndpointInput> {} 
+export interface UpdateEndpointInput extends Partial<CreateEndpointInput> {}
+
+export interface EndpointResponse extends Omit<Endpoint, 'group_id'> {
+  group: {
+    id: UUID
+    name: string
+  }
+} 

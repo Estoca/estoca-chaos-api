@@ -72,4 +72,33 @@ export async function deleteGroup(id: string): Promise<void> {
   if (!response.ok) {
     throw new Error("Failed to delete group")
   }
-} 
+}
+
+// --- Endpoint Functions --- //
+
+interface DeleteEndpointParams {
+  groupId: string
+  endpointId: string
+}
+
+export async function deleteEndpoint({ groupId, endpointId }: DeleteEndpointParams): Promise<void> {
+  const response = await fetch(`${API_URL}/groups/${groupId}/endpoints/${endpointId}`, {
+    method: "DELETE",
+    headers: await getHeaders(),
+  })
+
+  if (!response.ok) {
+    // Attempt to get error details from response body
+    let errorDetail = `Failed to delete endpoint. Status: ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      errorDetail = errorBody.detail || errorDetail;
+    } catch (e) {
+      // Ignore if response body isn't JSON or empty
+    }
+    throw new Error(errorDetail);
+  }
+  // No explicit return needed for void
+}
+
+// TODO: Add functions for getEndpoints, createEndpoint, updateEndpoint 

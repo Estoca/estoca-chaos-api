@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import axios from "axios"
 import { useToast } from "@/components/ui/use-toast"
 import api from "@/lib/axios"
+import { deleteEndpoint } from "@/services/api"
 
 import {
   type CreateEndpointInput,
@@ -9,6 +10,11 @@ import {
   type UpdateEndpointInput,
   type UUID,
 } from "@/types/endpoint"
+
+interface DeleteEndpointVariables {
+  groupId: UUID
+  endpointId: UUID
+}
 
 export function useEndpoints(groupId: UUID) {
   const queryClient = useQueryClient()
@@ -121,34 +127,21 @@ export function useEndpoints(groupId: UUID) {
     },
   })
 
-  const deleteEndpoint = useMutation({
-    mutationFn: async (id: UUID) => {
-      try {
-        await api.delete(`/groups/${groupId}/endpoints/${id}`)
-      } catch (error) {
-        console.error("Failed to delete endpoint:", error)
-        if (axios.isAxiosError(error)) {
-          const errorMessage = error.response?.data?.detail || "Failed to delete endpoint"
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage),
-          })
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Failed to delete endpoint",
-          })
-        }
-        throw error
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["endpoints", groupId] })
+  const deleteEndpointMutate = useMutation<void, Error, DeleteEndpointVariables>({
+    mutationFn: deleteEndpoint,
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["endpoints", variables.groupId] })
       toast({
-        title: "Success",
-        description: "Endpoint deleted successfully",
+        title: "Endpoint Deleted",
+        description: "The endpoint has been successfully deleted.",
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: "Error Deleting Endpoint",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
       })
     },
   })
@@ -187,7 +180,8 @@ export function useEndpoints(groupId: UUID) {
     error,
     createEndpoint: createEndpoint.mutateAsync,
     updateEndpoint: updateEndpoint.mutateAsync,
-    deleteEndpoint: deleteEndpoint.mutateAsync,
+    deleteEndpoint: deleteEndpointMutate.mutateAsync,
     testEndpoint: testEndpoint.mutateAsync,
+    isDeleting: deleteEndpointMutate.isPending,
   }
 } 
