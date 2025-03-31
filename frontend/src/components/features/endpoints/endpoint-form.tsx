@@ -26,8 +26,17 @@ import {
 } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ParameterList } from "./parameter-list"
-import { useEffect } from "react"
 import { safeJsonParse } from "@/lib/utils"
+import { Info } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { useToast } from "@/components/ui/use-toast"
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -45,7 +54,8 @@ const formSchema = z.object({
   url_parameters: z.array(z.any()).default([]),
 })
 
-type FormValues = z.infer<typeof formSchema>
+// Export the inferred type
+export type FormValues = z.infer<typeof formSchema>
 
 interface EndpointFormProps {
   groupId: string
@@ -56,6 +66,7 @@ interface EndpointFormProps {
 export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormProps) {
   const router = useRouter()
   const { createEndpoint, updateEndpoint, isLoading } = useEndpoints(groupId)
+  const { toast } = useToast()
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -79,43 +90,87 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
   const watchedResponseType = form.watch("response_type")
   const watchedMethod = form.watch("method")
 
-  useEffect(() => {
-    if (watchedResponseType === "fixed") {
-      form.setValue("response_schema", "")
-    } else if (watchedResponseType === "dynamic") {
-      form.setValue("response_body", "")
+  const handleValidateJson = (fieldName: "response_schema" | "request_body_schema") => {
+    const jsonString = form.getValues(fieldName)
+    if (!jsonString) {
+      toast({ title: "Info", description: "Field is empty." })
+      return
     }
-  }, [watchedResponseType, form.setValue])
+    try {
+      JSON.parse(jsonString)
+      toast({ title: "Success", description: "JSON syntax is valid." })
+    } catch (error) {
+      toast({
+        title: "Invalid JSON",
+        description: error instanceof Error ? error.message : "Unknown syntax error.",
+        variant: "destructive",
+      })
+    }
+  }
 
   async function onSubmit(values: FormValues) {
     try {
-      // Safely parse response schema
-      const responseSchema = safeJsonParse(values.response_schema)
-      
+      // 2. Conditionally nullify inactive field data before processing/sending
+      let finalResponseBody = values.response_body
+      let finalResponseSchemaString = values.response_schema
+
+      if (values.response_type === "fixed") {
+        finalResponseSchemaString = undefined // Ignore schema if type is fixed
+      } else if (values.response_type === "dynamic") {
+        finalResponseBody = undefined // Ignore body if type is dynamic
+      }
+
+      // Safely parse potentially modified schema string
+      const responseSchema = safeJsonParse(finalResponseSchemaString)
+      const requestBodySchema = safeJsonParse(values.request_body_schema)
+
       // Normalize data to prevent serialization issues
       const sanitizedHeaders = values.headers.map(header => ({
-        ...header,
-        default_response: header.default_response || {},
+        name: header.name,
+        value: header.value,
+        required: header.required || false,
+        default_response: header.default_response || undefined, // Use undefined if needed
+        default_status_code: header.default_status_code || undefined,
       }))
 
       const sanitizedUrlParameters = values.url_parameters.map(param => ({
-        ...param,
-        default_response: param.default_response || {},
+        name: param.name,
+        value: param.value,
+        required: param.required || false,
+        default_response: param.default_response || undefined,
+        default_status_code: param.default_status_code || undefined,
       }))
 
-      const submitValues = {
-        ...values,
-        response_schema: responseSchema,
-        description: values.description || "",
-        response_body: values.response_body || "",
+      // Prepare the core data payload matching EndpointBase/EndpointUpdate type
+      const endpointPayload = {
+        name: values.name,
+        description: values.description || null,
+        path: values.path,
+        method: values.method,
+        max_wait_time: values.max_wait_time,
+        chaos_mode: values.chaos_mode,
+        response_type: values.response_type,
+        response_schema: responseSchema, // Use parsed schema
+        response_status_code: values.response_status_code,
+        response_body: finalResponseBody || null, // Use potentially nulled body
+        request_body_schema: requestBodySchema, // Use parsed schema
         headers: sanitizedHeaders,
         url_parameters: sanitizedUrlParameters,
       }
 
       if (endpointId) {
-        await updateEndpoint({ id: endpointId, data: submitValues })
+        // Correct structure for updateEndpoint mutation
+        await updateEndpoint({ 
+          groupId: groupId, // groupId is from props
+          endpointId: endpointId, 
+          data: endpointPayload // Pass the prepared payload
+        })
       } else {
-        await createEndpoint(submitValues)
+        // Correct structure for createEndpoint mutation
+        await createEndpoint({
+          ...endpointPayload,
+          group_id: groupId // Add required group_id
+        })
       }
 
       router.push(`/groups/${groupId}`)
@@ -268,7 +323,62 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
                     <FormControl>
                       <RadioGroupItem value="dynamic" />
                     </FormControl>
-                    <FormLabel className="font-normal">Dynamic Schema-Based Response</FormLabel>
+                    <div className="flex items-center gap-1">
+                      <FormLabel className="font-normal">Dynamic Schema-Based Response</FormLabel>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button type="button" variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
+                            <Info className="h-3 w-3" />
+                            <span className="sr-only">Schema Info</span>
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Response Schema Information</DialogTitle>
+                            <DialogDescription>
+                              Define the structure and data types for randomly generated responses using standard JSON Schema.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-3 text-sm py-4">
+                            <p>
+                              The schema determines the shape of the JSON returned by this endpoint when 'Dynamic' mode is selected.
+                            </p>
+                            <p>
+                              You can leverage the <code className="font-mono bg-muted px-1 rounded">Faker</code> library for realistic random data by adding a <code className="font-mono bg-muted px-1 rounded">$provider</code> property to string fields.
+                            </p>
+                            <div>
+                              <p className="font-medium mb-1">Example:</p>
+                              <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
+{`{
+  "type": "object",
+  "properties": {
+    "userId": { "type": "integer" },
+    "name": {
+      "type": "string",
+      "$provider": "faker.name"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "$provider": "faker.email"
+    },
+    "lastLogin": {
+      "type": "string",
+      "format": "date-time",
+      "$provider": "faker.iso8601"
+    }
+  },
+  "required": ["userId", "name", "email"]
+}`}
+                              </pre>
+                            </div>
+                            <p>
+                              See the <a href="https://faker.readthedocs.io/en/master/providers.html" target="_blank" rel="noopener noreferrer" className="underline text-primary hover:text-primary/80">Faker documentation</a> for a full list of available providers.
+                            </p>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                   </FormItem>
                 </RadioGroup>
               </FormControl>
@@ -290,6 +400,16 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
                     {...field}
                   />
                 </FormControl>
+                <div className="flex justify-end mt-1">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleValidateJson("response_schema")}
+                  >
+                    Validate JSON
+                  </Button>
+                </div>
                 <FormMessage />
               </FormItem>
             )}
@@ -320,7 +440,49 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
             name="request_body_schema"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Request Body Schema (JSON)</FormLabel>
+                <div className="flex items-center gap-1">
+                  <FormLabel>Request Body Schema (JSON)</FormLabel>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button type="button" variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
+                        <Info className="h-3 w-3" />
+                        <span className="sr-only">Request Body Schema Info</span>
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Request Body Schema Information</DialogTitle>
+                        <DialogDescription>
+                          Define a JSON Schema to validate the structure and data types of incoming request bodies for POST, PUT, or PATCH methods.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-3 text-sm py-4">
+                        <p>
+                          If a request with method POST, PUT, or PATCH is received and its body does not conform to this schema, a 400 Bad Request error will be returned.
+                        </p>
+                        <p>
+                          Leave this empty if you don't need request body validation for this endpoint.
+                        </p>
+                        <div>
+                          <p className="font-medium mb-1">Example:</p>
+                          <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
+{`{
+  "type": "object",
+  "properties": {
+    "userName": { "type": "string" },
+    "items": {
+      "type": "array",
+      "items": { "type": "integer" }
+    }
+  },
+  "required": ["userName", "items"]
+}`}
+                          </pre>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
                 <FormControl>
                   <Textarea
                     placeholder='Enter the JSON schema to validate the incoming request body for POST/PUT/PATCH. Example: { "type": "object", "properties": { "userId": { "type": "integer" } }, "required": ["userId"] }'
@@ -328,6 +490,16 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
                     {...field}
                   />
                 </FormControl>
+                <div className="flex justify-end mt-1">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleValidateJson("request_body_schema")}
+                  >
+                    Validate JSON
+                  </Button>
+                </div>
                 <FormMessage />
               </FormItem>
             )}

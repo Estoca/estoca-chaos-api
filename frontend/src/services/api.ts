@@ -1,5 +1,6 @@
 import { CreateGroupInput, Group, UpdateGroupInput } from "@/types/group"
 import { getSession } from "next-auth/react"
+import { type Endpoint, type UUID, type EndpointCreate, type EndpointUpdate } from "@/types/endpoint"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
 
@@ -101,4 +102,63 @@ export async function deleteEndpoint({ groupId, endpointId }: DeleteEndpointPara
   // No explicit return needed for void
 }
 
-// TODO: Add functions for getEndpoints, createEndpoint, updateEndpoint 
+// --- Types needed for Endpoint API functions ---
+
+interface EndpointApiParams {
+  groupId: UUID
+  endpointId: UUID
+}
+
+interface UpdateEndpointPayload {
+  groupId: UUID
+  endpointId: UUID
+  data: EndpointUpdate // Or a more specific update type if needed
+}
+
+// Add getEndpoint function
+export async function getEndpoint({ groupId, endpointId }: EndpointApiParams): Promise<Endpoint> {
+  const response = await fetch(`${API_URL}/groups/${groupId}/endpoints/${endpointId}`, {
+    headers: await getHeaders(),
+  });
+
+  if (!response.ok) {
+    let errorDetail = `Failed to fetch endpoint. Status: ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      // Handle 404 specifically if needed for notFound()
+      if (response.status === 404) {
+        throw new Error(errorBody.detail || 'Endpoint not found');
+      } 
+      errorDetail = errorBody.detail || errorDetail;
+    } catch (e) {
+       if (e instanceof Error) errorDetail = e.message;
+    }
+    throw new Error(errorDetail);
+  }
+
+  return response.json();
+}
+
+// TODO: Add function for getEndpoints
+// TODO: Add function for createEndpoint
+
+export async function updateEndpoint({ groupId, endpointId, data }: UpdateEndpointPayload): Promise<Endpoint> {
+  const response = await fetch(`${API_URL}/groups/${groupId}/endpoints/${endpointId}`, {
+    method: "PUT",
+    headers: await getHeaders(),
+    body: JSON.stringify(data),
+  })
+
+  if (!response.ok) {
+    let errorDetail = `Failed to update endpoint. Status: ${response.status}`;
+    try {
+      const errorBody = await response.json();
+      errorDetail = errorBody.detail || errorDetail;
+    } catch (e) {
+      // Ignore if response body isn't JSON or empty
+    }
+    throw new Error(errorDetail);
+  }
+
+  return response.json()
+} 

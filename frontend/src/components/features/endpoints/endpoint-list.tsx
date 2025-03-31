@@ -113,6 +113,10 @@ export function EndpointList({ groupId }: EndpointListProps) {
                   </span>
                 </CardTitle>
                 <CardDescription>{endpoint.description}</CardDescription>
+                <div className="mt-2">
+                  <span className="text-xs font-semibold uppercase text-muted-foreground">Path:</span>
+                  <p className="text-sm font-mono break-all">/{endpoint.path}</p>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="text-sm text-muted-foreground">

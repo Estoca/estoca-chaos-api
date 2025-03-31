@@ -48,7 +48,8 @@ class EndpointRepository:
         )
         self.session.add(endpoint)
         await self.session.commit()
-        await self.session.refresh(endpoint)
+        # Refresh with relationship loading
+        await self.session.refresh(endpoint, attribute_names=['headers', 'url_parameters'])
         return endpoint
 
     async def get_by_id(self, endpoint_id: UUID) -> Optional[Endpoint]:
@@ -134,8 +135,13 @@ class EndpointRepository:
                 endpoint.url_parameters = new_params
                 
             await self.session.commit()
-            await self.session.refresh(endpoint)
-        return endpoint
+            # Refresh with relationship loading after updating - SAFER ALTERNATIVE:
+            # await self.session.refresh(endpoint, attribute_names=['headers', 'url_parameters'])
+            # Re-fetch using get_by_id to ensure all data (including relationships) is loaded
+            refreshed_endpoint = await self.get_by_id(endpoint_id)
+            return refreshed_endpoint # Return the re-fetched object
+        # return endpoint # Original return removed
+        return None # Should return None if endpoint wasn't found initially
 
     async def delete(self, endpoint_id: UUID) -> bool:
         endpoint = await self.get_by_id(endpoint_id)

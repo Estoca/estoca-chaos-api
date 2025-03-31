@@ -1,10 +1,14 @@
 "use client"
 
-import { EndpointForm } from "@/components/features/endpoints/endpoint-form"
-import { useEndpoints } from "@/hooks/use-endpoints"
+import { EndpointForm, type FormValues } from "@/components/features/endpoints/endpoint-form"
+import { useEndpoint } from "@/hooks/use-endpoint"
 import { type UUID } from "@/types/endpoint"
 import { safeJsonStringify } from "@/lib/utils"
 import { DeleteEndpointButton } from "@/components/features/endpoints/delete-endpoint-button"
+import { notFound } from "next/navigation"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Terminal } from "lucide-react"
 
 interface EditEndpointPageProps {
   params: {
@@ -13,69 +17,80 @@ interface EditEndpointPageProps {
   }
 }
 
-// Helper function to create a clean, serializable copy of an object
-function createSerializableCopy<T>(obj: T): T {
-  if (!obj) return obj;
-  
-  // For arrays, map over all items recursively
-  if (Array.isArray(obj)) {
-    return obj.map(item => createSerializableCopy(item)) as unknown as T;
-  }
-  
-  // For objects (but not null), create a clean copy
-  if (typeof obj === 'object' && obj !== null) {
-    const result: Record<string, any> = {};
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        if (typeof obj[key] === 'function') {
-          // Skip functions
-          continue;
-        } else if (typeof obj[key] === 'undefined') {
-          // Replace undefined with null for JSON compatibility
-          result[key] = null;
-        } else if (obj[key] === null) {
-          // Keep null values as-is
-          result[key] = null;
-        } else if (typeof obj[key] === 'object') {
-          // Recursively handle nested objects/arrays
-          result[key] = createSerializableCopy(obj[key]);
-        } else {
-          // Primitive values can be copied directly
-          result[key] = obj[key];
-        }
-      }
-    }
-    return result as T;
-  }
-  
-  // For primitive values, return directly
-  return obj;
-}
-
 export default function EditEndpointPage({ params }: EditEndpointPageProps) {
-  const { endpoints } = useEndpoints(params.groupId)
-  const endpoint = endpoints.find((e) => e.id === params.endpointId)
+  const { 
+    data: endpoint, 
+    isLoading, 
+    isError, 
+    error 
+  } = useEndpoint({ groupId: params.groupId, endpointId: params.endpointId })
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-6 w-1/4 mb-1" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+        <div className="border-t">
+          <div className="p-6 space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-40 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+        </div>
+        <div className="pt-6 border-t border-destructive/50">
+          <Skeleton className="h-5 w-1/5 mb-2" />
+          <Skeleton className="h-4 w-3/4 mb-4" />
+          <Skeleton className="h-10 w-20" />
+        </div>
+      </div>
+    )
+  }
+
+  if (isError) {
+    if (error?.message?.includes('not found') || error?.message?.includes('404')) {
+        notFound();
+    }
+    return (
+      <div className="container mx-auto py-8">
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Error Fetching Endpoint</AlertTitle>
+          <AlertDescription>
+            {error instanceof Error ? error.message : "An unknown error occurred."}
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+  
   if (!endpoint) {
-    return null
+    notFound()
   }
 
-  // Create a completely clean, serializable copy of the endpoint
-  const sanitizedEndpoint = createSerializableCopy(endpoint);
-
-  // Further ensure default_response is initialized as an empty object
-  if (sanitizedEndpoint.headers) {
-    sanitizedEndpoint.headers = sanitizedEndpoint.headers.map(header => ({
-      ...header,
-      default_response: header.default_response || {},
-    }));
-  }
-
-  if (sanitizedEndpoint.url_parameters) {
-    sanitizedEndpoint.url_parameters = sanitizedEndpoint.url_parameters.map(param => ({
-      ...param,
-      default_response: param.default_response || {},
-    }));
+  const initialData: FormValues = {
+    name: endpoint.name,
+    description: endpoint.description || "",
+    path: endpoint.path,
+    method: endpoint.method,
+    max_wait_time: endpoint.max_wait_time ?? 0,
+    chaos_mode: endpoint.chaos_mode ?? true,
+    response_status_code: endpoint.response_status_code ?? 200,
+    response_body: endpoint.response_body || "",
+    response_type: (endpoint.response_schema && Object.keys(endpoint.response_schema).length > 0) 
+                    ? "dynamic" 
+                    : "fixed",
+    response_schema: (!endpoint.response_schema || Object.keys(endpoint.response_schema).length === 0)
+                      ? "" 
+                      : safeJsonStringify(endpoint.response_schema),
+    request_body_schema: (!endpoint.request_body_schema || Object.keys(endpoint.request_body_schema).length === 0)
+                        ? "" 
+                        : safeJsonStringify(endpoint.request_body_schema),
+    headers: endpoint.headers || [],
+    url_parameters: endpoint.url_parameters || [],
   }
 
   return (
@@ -83,33 +98,14 @@ export default function EditEndpointPage({ params }: EditEndpointPageProps) {
       <div>
         <h3 className="text-lg font-medium">Edit Endpoint</h3>
         <p className="text-sm text-muted-foreground">
-          Update the endpoint configuration.
+          Update the endpoint configuration for <span className="font-semibold">{endpoint.name}</span>.
         </p>
       </div>
       <div className="border-t">
         <EndpointForm
           groupId={params.groupId}
           endpointId={params.endpointId}
-          initialData={{
-            name: sanitizedEndpoint.name,
-            description: sanitizedEndpoint.description,
-            path: sanitizedEndpoint.path,
-            method: sanitizedEndpoint.method,
-            max_wait_time: sanitizedEndpoint.max_wait_time,
-            chaos_mode: sanitizedEndpoint.chaos_mode,
-            response_status_code: sanitizedEndpoint.response_status_code,
-            // Determine type based on schema existence
-            response_type: (sanitizedEndpoint.response_schema && Object.keys(sanitizedEndpoint.response_schema).length > 0) 
-                            ? "dynamic" 
-                            : "fixed",
-            // Provide default {} BEFORE stringifying if null/undefined
-            response_schema: safeJsonStringify(sanitizedEndpoint.response_schema || {}),
-            response_body: sanitizedEndpoint.response_body,
-            // Provide default {} BEFORE stringifying if null/undefined
-            request_body_schema: safeJsonStringify(sanitizedEndpoint.request_body_schema || {}),
-            headers: sanitizedEndpoint.headers || [],
-            url_parameters: sanitizedEndpoint.url_parameters || [],
-          }}
+          initialData={initialData}
         />
       </div>
       <div className="pt-6 border-t border-destructive/50">
@@ -120,7 +116,7 @@ export default function EditEndpointPage({ params }: EditEndpointPageProps) {
         <DeleteEndpointButton 
           groupId={params.groupId} 
           endpointId={params.endpointId} 
-          endpointName={sanitizedEndpoint.name}
+          endpointName={endpoint.name}
         />
       </div>
     </div>
