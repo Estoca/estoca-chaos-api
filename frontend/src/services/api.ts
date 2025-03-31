@@ -2,7 +2,7 @@ import { CreateGroupInput, Group, UpdateGroupInput } from "@/types/group"
 import { getSession } from "next-auth/react"
 import { type Endpoint, type UUID, type EndpointCreate, type EndpointUpdate } from "@/types/endpoint"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8033/api/v1"
 
 async function getHeaders() {
   const session = await getSession()

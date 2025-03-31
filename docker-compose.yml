@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: docker/backend.Dockerfile
     ports:
-      - "${BACKEND_PORT}:8000"
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
     environment:
       - PYTHONPATH=/app
       - DATABASE_URL=${DATABASE_URL}
@@ -19,6 +19,7 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - OAUTH_REDIRECT_URL=${OAUTH_REDIRECT_URL}
       - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
+      - BACKEND_PORT=${BACKEND_PORT}
     depends_on:
       db:
         condition: service_healthy
@@ -34,7 +35,7 @@ services:
         echo 'Database is ready!'
         PGPASSWORD=${POSTGRES_PASSWORD} psql -h db -U ${POSTGRES_USER} -d postgres -c 'CREATE DATABASE ${POSTGRES_DB};' || true
         poetry run alembic upgrade head &&
-        poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+        poetry run uvicorn app.main:app --host 0.0.0.0 --port ${BACKEND_PORT} --reload"
 
   frontend:
     build:
@@ -43,12 +44,13 @@ services:
     ports:
       - "${FRONTEND_PORT}:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:${BACKEND_PORT}/api/v1
-      - INTERNAL_API_URL=http://backend:8000/api/v1
+      - NEXT_PUBLIC_API_URL=http://localhost:8033/api/v1
+      - INTERNAL_API_URL=http://backend:8033/api/v1
       - NEXTAUTH_URL=http://localhost:${FRONTEND_PORT}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - PORT=3000
     depends_on:
       - backend
 

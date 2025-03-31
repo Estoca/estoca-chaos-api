@@ -63,7 +63,7 @@ export function EndpointList({ groupId }: EndpointListProps) {
   const { endpoints, isLoading, error } = useEndpoints(groupId)
   
   // Get the API base URL from environment variables or use a default
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8033/api/v1"
 
   if (error) {
     return (

@@ -3,6 +3,10 @@ FROM node:18-alpine
 # Set working directory
 WORKDIR /app
 
+# Set environment variables explicitly during build
+ENV NEXT_PUBLIC_API_URL=http://localhost:8033/api/v1
+ENV INTERNAL_API_URL=http://backend:8033/api/v1
+
 # Install dependencies
 COPY frontend/package.json ./
 RUN npm install
@@ -34,8 +38,9 @@ RUN echo 'export const delay = (ms) => new Promise((resolve) => setTimeout(resol
 # Build the application without running linting
 RUN npm run build -- --no-lint
 
-# Expose port
+# Expose port (will use environment variable if provided)
 EXPOSE 3000
 
 # Start the application in production mode
+# Next.js will use the PORT environment variable if set
 CMD ["npm", "start"] 
