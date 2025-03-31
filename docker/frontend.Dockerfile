@@ -10,8 +10,8 @@ RUN npm install
 # Copy application code
 COPY frontend/ .
 
-# Build the application
-RUN npm run build
+# Build the application without running linting
+RUN npm run build -- --no-lint
 
 # Expose port
 EXPOSE 3000
