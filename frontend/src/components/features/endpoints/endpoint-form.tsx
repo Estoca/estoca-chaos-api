@@ -24,7 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ParameterList } from "./parameter-list"
+import { useEffect } from "react"
 import { safeJsonParse } from "@/lib/utils"
 
 const formSchema = z.object({
@@ -34,6 +36,7 @@ const formSchema = z.object({
   method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
   max_wait_time: z.number().min(0),
   chaos_mode: z.boolean(),
+  response_type: z.enum(["fixed", "dynamic"]),
   response_schema: z.string().optional(),
   response_status_code: z.number().min(100).max(599),
   response_body: z.string().optional(),
@@ -63,6 +66,7 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
       method: "GET",
       max_wait_time: 0,
       chaos_mode: true,
+      response_type: "fixed",
       response_schema: "{}",
       response_status_code: 200,
       response_body: "",
@@ -72,7 +76,16 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
     },
   })
 
+  const watchedResponseType = form.watch("response_type")
   const watchedMethod = form.watch("method")
+
+  useEffect(() => {
+    if (watchedResponseType === "fixed") {
+      form.setValue("response_schema", "")
+    } else if (watchedResponseType === "dynamic") {
+      form.setValue("response_body", "")
+    }
+  }, [watchedResponseType, form.setValue])
 
   async function onSubmit(values: FormValues) {
     try {
@@ -237,38 +250,72 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
         />
         <FormField
           control={form.control}
-          name="response_body"
+          name="response_type"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Response Body</FormLabel>
+            <FormItem className="space-y-3">
+              <FormLabel>Response Content Type</FormLabel>
               <FormControl>
-                <Textarea
-                  placeholder="Enter response body"
-                  className="resize-none font-mono"
-                  {...field}
-                />
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  className="flex space-x-4"
+                >
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="fixed" />
+                    </FormControl>
+                    <FormLabel className="font-normal">Fixed Response Body</FormLabel>
+                  </FormItem>
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="dynamic" />
+                    </FormControl>
+                    <FormLabel className="font-normal">Dynamic Schema-Based Response</FormLabel>
+                  </FormItem>
+                </RadioGroup>
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="response_schema"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Response Schema</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Enter response schema (JSON)"
-                  className="resize-none font-mono"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {watchedResponseType === "dynamic" && (
+          <FormField
+            control={form.control}
+            name="response_schema"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Response Schema (JSON)</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder='Enter the JSON schema for the response body. Example: { "type": "object", "properties": { "id": { "type": "integer" }, "name": { "type": "string", "$provider": "faker.name" } }, "required": ["id", "name"] }'
+                    className="resize-y min-h-[150px] font-mono"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+        {watchedResponseType === "fixed" && (
+          <FormField
+            control={form.control}
+            name="response_body"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Response Body</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Enter fixed response body (JSON, XML, text, etc.)"
+                    className="resize-y min-h-[150px] font-mono"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         {watchedMethod && ["POST", "PUT", "PATCH"].includes(watchedMethod) && (
           <FormField
             control={form.control}
