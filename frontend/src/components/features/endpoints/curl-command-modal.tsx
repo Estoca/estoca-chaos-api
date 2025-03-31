@@ -12,19 +12,22 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { useGroup } from "@/hooks/use-group"
 
 interface CurlCommandModalProps {
   endpoint: Endpoint
   apiBaseUrl: string
+  groupId: string
 }
 
-export function CurlCommandModal({ endpoint, apiBaseUrl }: CurlCommandModalProps) {
+export function CurlCommandModal({ endpoint, apiBaseUrl, groupId }: CurlCommandModalProps) {
   const [open, setOpen] = useState(false)
   const { toast } = useToast()
+  const { data: group } = useGroup(groupId)
 
   // Generate the cURL command based on the endpoint configuration
   const generateCurlCommand = () => {
-    const url = `${apiBaseUrl}/${endpoint.path}`;
+    const url = `${apiBaseUrl}/${group?.name || ""}/${endpoint.path}`;
     
     // Start with the base command
     let curlCommand = `curl -X ${endpoint.method}`;

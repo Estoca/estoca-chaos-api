@@ -29,6 +29,7 @@ function EndpointCard({ endpoint, groupId, apiBaseUrl }: { endpoint: Endpoint, g
         <CurlCommandModal 
           endpoint={endpoint} 
           apiBaseUrl={apiBaseUrl}
+          groupId={groupId}
         />
         
         <CardHeader>

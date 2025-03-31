@@ -26,6 +26,21 @@ api.interceptors.request.use(
   }
 )
 
+// Helper function to redirect to login
+const redirectToLogin = () => {
+  // Only redirect if we're in a browser environment
+  if (typeof window !== 'undefined') {
+    // Store the current URL to redirect back after login
+    const currentPath = window.location.pathname + window.location.search
+    if (currentPath !== '/auth/signin') {
+      // Store the current path for potential redirect after login
+      sessionStorage.setItem('redirectAfterLogin', currentPath)
+      // Redirect to login page
+      window.location.href = '/auth/signin'
+    }
+  }
+}
+
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
@@ -43,6 +58,12 @@ api.interceptors.response.use(
       data: error.response?.data,
       message: error.message,
     })
+
+    // Check for 403 Forbidden response
+    if (error.response?.status === 403) {
+      redirectToLogin()
+    }
+
     return Promise.reject(error)
   }
 )
