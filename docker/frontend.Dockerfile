@@ -6,6 +6,8 @@ WORKDIR /app
 # Set environment variables explicitly during build
 ENV NEXT_PUBLIC_API_URL=http://localhost:8033/api/v1
 ENV INTERNAL_API_URL=http://backend:8033/api/v1
+# Use NEXTAUTH_URL from docker-compose environment variables
+# ENV NEXTAUTH_URL is intentionally not set here to avoid hardcoding
 
 # Install dependencies
 COPY frontend/package.json ./

@@ -44,9 +44,9 @@ services:
     ports:
       - "${FRONTEND_PORT}:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8033/api/v1
-      - INTERNAL_API_URL=http://backend:8033/api/v1
-      - NEXTAUTH_URL=http://localhost:${FRONTEND_PORT}
+      - NEXT_PUBLIC_API_URL=http://localhost:${BACKEND_PORT}/api/v1
+      - INTERNAL_API_URL=http://backend:${BACKEND_PORT}/api/v1
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://mock.cava.industries}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
