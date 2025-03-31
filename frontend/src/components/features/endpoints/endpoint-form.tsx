@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { useState } from "react"
+import { cn } from "@/lib/utils"
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -71,6 +72,10 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
   const [exampleDialogOpen, setExampleDialogOpen] = useState(false)
   const [exampleJson, setExampleJson] = useState("")
   const [exampleTitle, setExampleTitle] = useState("")
+  const [schemaErrors, setSchemaErrors] = useState<{
+    response_schema?: string;
+    request_body_schema?: string;
+  }>({})
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -82,10 +87,10 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
       max_wait_time: 0,
       chaos_mode: true,
       response_type: "fixed",
-      response_schema: "{}",
+      response_schema: "",
       response_status_code: 200,
       response_body: "",
-      request_body_schema: "{}",
+      request_body_schema: "",
       headers: [],
       url_parameters: [],
     },
@@ -100,10 +105,24 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
       toast({ title: "Info", description: "Field is empty." })
       return
     }
+    
     try {
       JSON.parse(jsonString)
+      
+      // Clear any existing error
+      setSchemaErrors(prev => ({
+        ...prev,
+        [fieldName]: undefined
+      }))
+      
       toast({ title: "Success", description: "JSON syntax is valid." })
     } catch (error) {
+      // Set error state for invalid JSON
+      setSchemaErrors(prev => ({
+        ...prev,
+        [fieldName]: error instanceof Error ? error.message : "Invalid JSON syntax."
+      }))
+      
       toast({
         title: "Invalid JSON",
         description: error instanceof Error ? error.message : "Unknown syntax error.",
@@ -133,17 +152,65 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
       
       // Open the dialog
       setExampleDialogOpen(true);
+      
+      // Clear any existing error
+      setSchemaErrors(prev => ({
+        ...prev,
+        [fieldName]: undefined
+      }))
     } catch (error) {
+      // Set error state
+      setSchemaErrors(prev => ({
+        ...prev,
+        [fieldName]: error instanceof Error ? error.message : "Invalid JSON syntax."
+      }))
+      
       toast({
         title: "Invalid JSON",
         description: error instanceof Error ? error.message : "Unknown syntax error.",
         variant: "destructive",
-      });
+      })
     }
   }
 
   async function onSubmit(values: FormValues) {
     try {
+      // Check for JSON validity before submitting
+      let hasErrors = false;
+      
+      if (values.response_type === "dynamic" && values.response_schema) {
+        try {
+          JSON.parse(values.response_schema);
+        } catch (error) {
+          setSchemaErrors(prev => ({
+            ...prev,
+            response_schema: error instanceof Error ? error.message : "Invalid JSON syntax."
+          }));
+          hasErrors = true;
+        }
+      }
+      
+      if (["POST", "PUT", "PATCH"].includes(values.method) && values.request_body_schema) {
+        try {
+          JSON.parse(values.request_body_schema);
+        } catch (error) {
+          setSchemaErrors(prev => ({
+            ...prev,
+            request_body_schema: error instanceof Error ? error.message : "Invalid JSON syntax."
+          }));
+          hasErrors = true;
+        }
+      }
+      
+      if (hasErrors) {
+        toast({
+          title: "Invalid JSON",
+          description: "Please fix the JSON syntax errors before submitting.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // 2. Conditionally nullify inactive field data before processing/sending
       let finalResponseBody = values.response_body
       let finalResponseSchemaString = values.response_schema
@@ -155,8 +222,13 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
       }
 
       // Safely parse potentially modified schema string
-      const responseSchema = safeJsonParse(finalResponseSchemaString)
-      const requestBodySchema = safeJsonParse(values.request_body_schema)
+      const responseSchema = finalResponseSchemaString 
+        ? safeJsonParse(finalResponseSchemaString) 
+        : undefined;
+        
+      const requestBodySchema = values.request_body_schema
+        ? safeJsonParse(values.request_body_schema)
+        : undefined;
 
       // Normalize data to prevent serialization issues
       const sanitizedHeaders = values.headers.map(header => ({
@@ -210,6 +282,11 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
       router.push(`/groups/${groupId}`)
     } catch (error) {
       console.error("Failed to save endpoint:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save endpoint",
+        variant: "destructive",
+      })
     }
   }
 
@@ -428,11 +505,51 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
               <FormItem>
                 <FormLabel>Response Schema (JSON)</FormLabel>
                 <FormControl>
-                  <Textarea
-                    placeholder='Enter the JSON schema for the response body. Example: { "type": "object", "properties": { "id": { "type": "integer" }, "name": { "type": "string", "$provider": "faker.name" } }, "required": ["id", "name"] }'
-                    className="resize-y min-h-[150px] font-mono"
-                    {...field}
-                  />
+                  <div className="relative">
+                    <Textarea
+                      placeholder='Enter the JSON schema for the response body. Example: { "type": "object", "properties": { "id": { "type": "integer" }, "name": { "type": "string", "$provider": "faker.name" } }, "required": ["id", "name"] }'
+                      className={cn(
+                        "resize-y min-h-[150px] font-mono",
+                        schemaErrors.response_schema && "border-destructive focus-visible:ring-destructive"
+                      )}
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        // Clear errors when user types
+                        if (schemaErrors.response_schema) {
+                          const newErrors = { ...schemaErrors };
+                          delete newErrors.response_schema;
+                          setSchemaErrors(newErrors);
+                        }
+                      }}
+                      onBlur={() => {
+                        // Validate JSON on blur
+                        const jsonString = field.value;
+                        if (!jsonString) return;
+                        
+                        try {
+                          JSON.parse(jsonString);
+                          // Clear any existing error on success
+                          if (schemaErrors.response_schema) {
+                            const newErrors = { ...schemaErrors };
+                            delete newErrors.response_schema;
+                            setSchemaErrors(newErrors);
+                          }
+                        } catch (error) {
+                          // Set error state for invalid JSON
+                          setSchemaErrors(prev => ({
+                            ...prev,
+                            response_schema: error instanceof Error ? error.message : "Invalid JSON syntax."
+                          }));
+                        }
+                      }}
+                    />
+                    {schemaErrors.response_schema && (
+                      <div className="text-xs text-destructive mt-1">
+                        {schemaErrors.response_schema}
+                      </div>
+                    )}
+                  </div>
                 </FormControl>
                 <div className="flex justify-end mt-1 space-x-2">
                   <Button 
@@ -526,11 +643,51 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
                   </Dialog>
                 </div>
                 <FormControl>
-                  <Textarea
-                    placeholder='Enter the JSON schema to validate the incoming request body for POST/PUT/PATCH. Example: { "type": "object", "properties": { "userId": { "type": "integer" } }, "required": ["userId"] }'
-                    className="resize-y min-h-[150px] font-mono"
-                    {...field}
-                  />
+                  <div className="relative">
+                    <Textarea
+                      placeholder='Enter the JSON schema to validate the incoming request body for POST/PUT/PATCH. Example: { "type": "object", "properties": { "userId": { "type": "integer" } }, "required": ["userId"] }'
+                      className={cn(
+                        "resize-y min-h-[150px] font-mono",
+                        schemaErrors.request_body_schema && "border-destructive focus-visible:ring-destructive"
+                      )}
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        // Clear errors when user types
+                        if (schemaErrors.request_body_schema) {
+                          const newErrors = { ...schemaErrors };
+                          delete newErrors.request_body_schema;
+                          setSchemaErrors(newErrors);
+                        }
+                      }}
+                      onBlur={() => {
+                        // Validate JSON on blur
+                        const jsonString = field.value;
+                        if (!jsonString) return;
+                        
+                        try {
+                          JSON.parse(jsonString);
+                          // Clear any existing error on success
+                          if (schemaErrors.request_body_schema) {
+                            const newErrors = { ...schemaErrors };
+                            delete newErrors.request_body_schema;
+                            setSchemaErrors(newErrors);
+                          }
+                        } catch (error) {
+                          // Set error state for invalid JSON
+                          setSchemaErrors(prev => ({
+                            ...prev,
+                            request_body_schema: error instanceof Error ? error.message : "Invalid JSON syntax."
+                          }));
+                        }
+                      }}
+                    />
+                    {schemaErrors.request_body_schema && (
+                      <div className="text-xs text-destructive mt-1">
+                        {schemaErrors.request_body_schema}
+                      </div>
+                    )}
+                  </div>
                 </FormControl>
                 <div className="flex justify-end mt-1 space-x-2">
                   <Button 

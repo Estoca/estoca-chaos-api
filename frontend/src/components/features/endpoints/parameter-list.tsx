@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { type Header, type UrlParameter } from "@/types/endpoint"
 import { safeJsonParse, safeJsonStringify } from "@/lib/utils"
+import { useToast } from "@/components/ui/use-toast"
+import { cn } from "@/lib/utils"
 
 interface ParameterListProps {
   type: "header" | "parameter"
@@ -14,11 +16,14 @@ interface ParameterListProps {
 }
 
 export function ParameterList({ type, items, onChange }: ParameterListProps) {
+  const { toast } = useToast()
+  const [editingJsonIds, setEditingJsonIds] = useState<Record<string, string>>({})
+  const [jsonErrors, setJsonErrors] = useState<Record<string, string>>({})
   const [newItem, setNewItem] = useState({
     name: "",
     value: "",
     required: false,
-    default_response: {},
+    default_response: undefined,
     default_status_code: 400,
   })
 
@@ -31,7 +36,7 @@ export function ParameterList({ type, items, onChange }: ParameterListProps) {
       name: newItem.name,
       value: newItem.value,
       required: newItem.required,
-      default_response: newItem.default_response || {},
+      default_response: newItem.default_response,
       default_status_code: newItem.default_status_code,
     }
 
@@ -40,13 +45,25 @@ export function ParameterList({ type, items, onChange }: ParameterListProps) {
       name: "",
       value: "",
       required: false,
-      default_response: {},
+      default_response: undefined,
       default_status_code: 400,
     })
   }
 
   const removeItem = (id: string) => {
     onChange(items.filter((item) => item.id !== id))
+    // Remove any editing state for this item
+    if (editingJsonIds[id]) {
+      const newEditingIds = { ...editingJsonIds }
+      delete newEditingIds[id]
+      setEditingJsonIds(newEditingIds)
+    }
+    // Remove any error state
+    if (jsonErrors[id]) {
+      const newErrors = { ...jsonErrors }
+      delete newErrors[id]
+      setJsonErrors(newErrors)
+    }
   }
 
   const updateItem = (id: string, updates: Partial<Header | UrlParameter>) => {
@@ -55,6 +72,137 @@ export function ParameterList({ type, items, onChange }: ParameterListProps) {
         item.id === id ? { ...item, ...updates } : item
       )
     )
+  }
+  
+  const handleJsonChange = (id: string, value: string) => {
+    setEditingJsonIds({
+      ...editingJsonIds,
+      [id]: value
+    })
+    
+    // Clear error when user edits the field
+    if (jsonErrors[id]) {
+      const newErrors = { ...jsonErrors }
+      delete newErrors[id]
+      setJsonErrors(newErrors)
+    }
+  }
+  
+  const validateJson = (id: string) => {
+    // Get the current value (either from editing state or from item)
+    const jsonValue = editingJsonIds[id] !== undefined 
+      ? editingJsonIds[id]
+      : (() => {
+          const defaultResponse = items.find(item => item.id === id)?.default_response;
+          if (!defaultResponse) return "";
+          // Check if it's an empty object
+          if (typeof defaultResponse === 'object' && 
+              Object.keys(defaultResponse).length === 0) {
+            return "";
+          }
+          return safeJsonStringify(defaultResponse);
+        })();
+    
+    // Ensure we're tracking this value in the editing state
+    if (editingJsonIds[id] === undefined) {
+      setEditingJsonIds({
+        ...editingJsonIds,
+        [id]: jsonValue
+      })
+    }
+    
+    try {
+      // Just validate, don't modify any state except clearing errors
+      JSON.parse(jsonValue)
+      
+      // Clear any existing error
+      if (jsonErrors[id]) {
+        const newErrors = { ...jsonErrors }
+        delete newErrors[id]
+        setJsonErrors(newErrors)
+      }
+      
+      toast({
+        title: "Valid JSON",
+        description: "The JSON format is valid.",
+      })
+    } catch (error) {
+      // Set error state for the field but don't change the JSON content
+      setJsonErrors({
+        ...jsonErrors,
+        [id]: error instanceof Error ? error.message : "Invalid JSON format"
+      })
+      
+      toast({
+        title: "Invalid JSON",
+        description: error instanceof Error ? error.message : "Invalid JSON format",
+        variant: "destructive",
+      })
+    }
+  }
+  
+  const handleJsonBlur = (id: string) => {
+    const jsonValue = editingJsonIds[id]
+    if (jsonValue === undefined) return
+    
+    try {
+      // Only attempt to parse and update if the JSON is valid
+      JSON.parse(jsonValue)
+      const parsed = JSON.parse(jsonValue)
+      updateItem(id, { default_response: parsed })
+      
+      // Clear any existing error
+      if (jsonErrors[id]) {
+        const newErrors = { ...jsonErrors }
+        delete newErrors[id]
+        setJsonErrors(newErrors)
+      }
+      
+      // Only remove from editing state if valid
+      // Keep this commented out to maintain the editing state even for valid JSON
+      // to prevent inconsistent behavior between valid/invalid entries
+      // const newEditingIds = { ...editingJsonIds }
+      // delete newEditingIds[id]
+      // setEditingJsonIds(newEditingIds)
+    } catch (error) {
+      // Set error state but NEVER modify the actual text in the field
+      setJsonErrors({
+        ...jsonErrors,
+        [id]: error instanceof Error ? error.message : "Invalid JSON format"
+      })
+      
+      // For invalid JSON, we need to set a temporary object so the field isn't cleared
+      // but we'll keep the editing state so the user's text is preserved
+      updateItem(id, { default_response: { _invalidJson: true } })
+      
+      // Don't clear the editing state for invalid JSON so it persists
+      toast({
+        title: "Invalid JSON",
+        description: error instanceof Error ? error.message : "Invalid JSON format",
+        variant: "destructive",
+      })
+    }
+  }
+  
+  // Initialize JSON editing state for an item if not already present
+  const getJsonEditValue = (item: Header | UrlParameter): string => {
+    // If we have a value in the editing state, use that
+    if (editingJsonIds[item.id] !== undefined) {
+      return editingJsonIds[item.id];
+    }
+    
+    // Handle null or undefined default_response
+    if (item.default_response === null || item.default_response === undefined) {
+      return "";
+    }
+    
+    // Handle empty objects - return empty string instead of "{}"
+    if (typeof item.default_response === 'object' && 
+        Object.keys(item.default_response).length === 0) {
+      return "";
+    }
+    
+    return safeJsonStringify(item.default_response);
   }
 
   return (
@@ -110,29 +258,56 @@ export function ParameterList({ type, items, onChange }: ParameterListProps) {
               </div>
               {item.required && (
                 <div className="space-y-2">
-                  <Input
-                    type="number"
-                    placeholder="Default Status Code"
-                    value={item.default_status_code}
-                    onChange={(e) =>
-                      updateItem(item.id, {
-                        default_status_code: Number(e.target.value),
-                      })
-                    }
-                  />
-                  <Textarea
-                    placeholder="Default Response (JSON)"
-                    value={safeJsonStringify(item.default_response)}
-                    onChange={(e) => {
-                      try {
-                        const parsed = safeJsonParse(e.target.value)
-                        updateItem(item.id, { default_response: parsed })
-                      } catch (error) {
-                        // Invalid JSON, ignore
-                        console.error("Invalid JSON input:", error)
+                  <div className="flex flex-col space-y-1">
+                    <label className="text-sm font-medium">
+                      Default Status Code
+                      <span className="text-xs text-muted-foreground ml-1">(when {type} is missing or invalid)</span>
+                    </label>
+                    <Input
+                      type="number"
+                      placeholder="Default Status Code"
+                      value={item.default_status_code}
+                      onChange={(e) =>
+                        updateItem(item.id, {
+                          default_status_code: Number(e.target.value),
+                        })
                       }
-                    }}
-                  />
+                    />
+                  </div>
+                  
+                  <div className="flex flex-col space-y-1">
+                    <label className="text-sm font-medium">
+                      Default Error Response
+                      <span className="text-xs text-muted-foreground ml-1">(JSON returned when {type} is missing or invalid)</span>
+                    </label>
+                    <div className="relative">
+                      <Textarea
+                        placeholder="Enter JSON error response for when this required parameter is missing"
+                        value={getJsonEditValue(item)}
+                        onChange={(e) => handleJsonChange(item.id, e.target.value)}
+                        onBlur={() => handleJsonBlur(item.id)}
+                        className={cn(
+                          "font-mono text-sm resize-y min-h-[100px]",
+                          jsonErrors[item.id] && "border-destructive focus-visible:ring-destructive"
+                        )}
+                      />
+                      {jsonErrors[item.id] && (
+                        <div className="text-xs text-destructive mt-1">
+                          {jsonErrors[item.id]}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-end mt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => validateJson(item.id)}
+                      >
+                        Validate JSON
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
