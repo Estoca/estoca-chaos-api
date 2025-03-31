@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { signOut, useSession } from "next-auth/react"
-import { Home, Plus, Settings, LogOut, FolderOpen } from "lucide-react"
+import { Home, LogOut, FolderOpen } from "lucide-react"
 import {
   Avatar,
   AvatarFallback,
@@ -37,16 +37,6 @@ export function Sidebar() {
       name: "Groups",
       href: "/groups",
       icon: FolderOpen,
-    },
-    {
-      name: "New Group",
-      href: "/groups/new",
-      icon: Plus,
-    },
-    {
-      name: "Settings",
-      href: "/settings",
-      icon: Settings,
     },
   ]
 
