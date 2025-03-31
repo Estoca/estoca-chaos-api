@@ -13,8 +13,8 @@ COPY frontend/ .
 # Build the application
 RUN npm run build
 
-# Expose port (will be overridden by environment variable)
-EXPOSE ${PORT:-3000}
+# Expose port
+EXPOSE 3000
 
 # Start the application in production mode
 CMD ["npm", "start"] 
