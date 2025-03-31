@@ -9,15 +9,60 @@ import { type Endpoint, type UUID } from "@/types/endpoint"
 import { PlusIcon } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
+import { CurlCommandModal } from "./curl-command-modal"
 
 interface EndpointListProps {
   groupId: UUID
+}
+
+// Add a new EndpointCard component to better handle click events
+function EndpointCard({ endpoint, groupId, apiBaseUrl }: { endpoint: Endpoint, groupId: UUID, apiBaseUrl: string }) {
+  const router = useRouter();
+  
+  const handleCardClick = () => {
+    router.push(`/groups/${groupId}/endpoints/${endpoint.id}/edit`);
+  };
+  
+  return (
+    <div className="relative">
+      <Card className="hover:bg-muted/50 cursor-pointer" onClick={handleCardClick}>
+        <CurlCommandModal 
+          endpoint={endpoint} 
+          apiBaseUrl={apiBaseUrl}
+        />
+        
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <span>{endpoint.name}</span>
+            <span className="text-sm font-normal text-muted-foreground">
+              {endpoint.method}
+            </span>
+          </CardTitle>
+          <CardDescription>{endpoint.description}</CardDescription>
+          <div className="mt-2">
+            <span className="text-xs font-semibold uppercase text-muted-foreground">Path:</span>
+            <p className="text-sm font-mono break-all">/{endpoint.path}</p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-sm text-muted-foreground">
+            <p>Status: {endpoint.response_status_code}</p>
+            <p>Max Wait Time: {endpoint.max_wait_time}ms</p>
+            <p>Chaos Mode: {endpoint.chaos_mode ? "Enabled" : "Disabled"}</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 export function EndpointList({ groupId }: EndpointListProps) {
   const router = useRouter()
   const { toast } = useToast()
   const { endpoints, isLoading, error } = useEndpoints(groupId)
+  
+  // Get the API base URL from environment variables or use a default
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"
 
   if (error) {
     return (
@@ -100,33 +145,12 @@ export function EndpointList({ groupId }: EndpointListProps) {
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {endpoints.map((endpoint: Endpoint) => (
-          <Link
+          <EndpointCard 
             key={endpoint.id}
-            href={`/groups/${groupId}/endpoints/${endpoint.id}/edit`}
-          >
-            <Card className="hover:bg-muted/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <span>{endpoint.name}</span>
-                  <span className="text-sm font-normal text-muted-foreground">
-                    {endpoint.method}
-                  </span>
-                </CardTitle>
-                <CardDescription>{endpoint.description}</CardDescription>
-                <div className="mt-2">
-                  <span className="text-xs font-semibold uppercase text-muted-foreground">Path:</span>
-                  <p className="text-sm font-mono break-all">/{endpoint.path}</p>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-muted-foreground">
-                  <p>Status: {endpoint.response_status_code}</p>
-                  <p>Max Wait Time: {endpoint.max_wait_time}ms</p>
-                  <p>Chaos Mode: {endpoint.chaos_mode ? "Enabled" : "Disabled"}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+            endpoint={endpoint}
+            groupId={groupId}
+            apiBaseUrl={apiBaseUrl}
+          />
         ))}
       </div>
     </div>
