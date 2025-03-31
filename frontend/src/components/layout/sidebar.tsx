@@ -44,7 +44,7 @@ export function Sidebar() {
     <div className="flex h-screen w-64 flex-col border-r bg-background">
       <div className="flex h-14 items-center border-b px-4">
         <Link href="/dashboard" className="flex items-center space-x-2">
-          <span className="text-xl font-bold">Estoca Mock API</span>
+          <span className="text-xl font-bold">Chaos API</span>
         </Link>
       </div>
       <ScrollArea className="flex-1">

@@ -9,8 +9,24 @@ import { Toaster } from "@/components/ui/toaster";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Estoca Mock API",
+  title: "Chaos API",
   description: "A powerful mock API application for testing system integrations",
+  icons: {
+    icon: [
+      {
+        url: "/favicon.ico",
+        sizes: "any"
+      },
+      {
+        url: "/icon.svg",
+        type: "image/svg+xml"
+      }
+    ],
+    apple: {
+      url: "/apple-touch-icon.png",
+      sizes: "180x180"
+    }
+  }
 };
 
 export default function RootLayout({
