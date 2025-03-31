@@ -31,10 +31,14 @@ class EndpointBase(BaseModel):
     response_body: Optional[str] = None
     headers: List[HeaderBase] = Field(default_factory=list, description="Expected headers")
     url_parameters: List[UrlParameterBase] = Field(default_factory=list, description="Expected URL parameters")
+    request_body_schema: Optional[Dict[str, Any]] = None
 
 
 class EndpointCreate(EndpointBase):
     group_id: UUID
+
+    class Config:
+        from_attributes = True
 
 
 class EndpointUpdate(EndpointBase):
@@ -76,6 +80,7 @@ class EndpointResponse(EndpointBase):
     created_at_epoch: int
     headers: List[HeaderResponse]
     url_parameters: List[UrlParameterResponse]
+    request_body_schema: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True 

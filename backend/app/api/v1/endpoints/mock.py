@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from uuid import UUID
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
 
 from app.api.deps import get_db
 from app.models.endpoint import Endpoint
@@ -55,6 +57,41 @@ async def handle_mock_endpoint(
     is_chaos = request.url.path.endswith("/chaos")
     if is_chaos and not endpoint.chaos_mode:
         raise HTTPException(status_code=404, detail="Chaos mode not enabled for this endpoint")
+    
+    # --- START: Request Body Validation ---
+    if request_method in ["POST", "PUT", "PATCH"] and endpoint.request_body_schema:
+        try:
+            request_body = await request.json()
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid JSON received in request body: {e}",
+            )
+
+        try:
+            # Ensure schema is a dict (it should be from the DB JSON type)
+            schema_to_validate = endpoint.request_body_schema
+            if not isinstance(schema_to_validate, dict):
+                 # This case should ideally not happen if DB/Pydantic handles JSON correctly
+                 raise HTTPException(
+                    status_code=500, 
+                    detail="Request body schema is not configured correctly."
+                )
+            
+            validate(instance=request_body, schema=schema_to_validate)
+        except ValidationError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                # Provide helpful error details from the validation exception
+                detail=f"Request body validation failed: {e.message} on path '{list(e.path)}'",
+            )
+        except Exception as e:
+            # Catch any other unexpected errors during validation
+            raise HTTPException(
+                status_code=500,
+                detail=f"An unexpected error occurred during request body validation: {e}"
+            )
+    # --- END: Request Body Validation ---
     
     # Validate headers
     headers_list = endpoint.headers or []

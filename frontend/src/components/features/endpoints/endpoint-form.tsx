@@ -37,6 +37,7 @@ const formSchema = z.object({
   response_schema: z.string().optional(),
   response_status_code: z.number().min(100).max(599),
   response_body: z.string().optional(),
+  request_body_schema: z.string().optional(),
   headers: z.array(z.any()).default([]),
   url_parameters: z.array(z.any()).default([]),
 })
@@ -65,15 +66,19 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
       response_schema: "{}",
       response_status_code: 200,
       response_body: "",
+      request_body_schema: "{}",
       headers: [],
       url_parameters: [],
     },
   })
 
+  const watchedMethod = form.watch("method")
+
   async function onSubmit(values: FormValues) {
     try {
       // Safely parse response schema
       const responseSchema = safeJsonParse(values.response_schema)
+      const requestBodySchema = safeJsonParse(values.request_body_schema)
       
       // Normalize data to prevent serialization issues
       const sanitizedHeaders = values.headers.map(header => ({
@@ -89,6 +94,7 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
       const submitValues = {
         ...values,
         response_schema: responseSchema,
+        request_body_schema: requestBodySchema,
         description: values.description || "",
         response_body: values.response_body || "",
         headers: sanitizedHeaders,
@@ -263,6 +269,25 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
             </FormItem>
           )}
         />
+        {watchedMethod && ["POST", "PUT", "PATCH"].includes(watchedMethod) && (
+          <FormField
+            control={form.control}
+            name="request_body_schema"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Request Body Schema (JSON)</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder='Enter the JSON schema to validate the incoming request body for POST/PUT/PATCH. Example: { "type": "object", "properties": { "userId": { "type": "integer" } }, "required": ["userId"] }'
+                    className="resize-y min-h-[150px] font-mono"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         <FormField
           control={form.control}
           name="headers"
