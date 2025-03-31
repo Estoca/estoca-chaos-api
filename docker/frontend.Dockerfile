@@ -12,24 +12,24 @@ RUN npm install --save clsx tailwind-merge
 COPY frontend/ .
 
 # Create missing lib/utils directory and file if it doesn't exist
-RUN mkdir -p ./src/lib && \
-    echo 'import { clsx } from "clsx";\n\
-import { twMerge } from "tailwind-merge";\n\
-\n\
-export function cn(...inputs) {\n\
-  return twMerge(clsx(inputs));\n\
-}\n\
-\n\
-export function formatDate(input) {\n\
-  const date = new Date(input);\n\
-  return date.toLocaleDateString("en-US", {\n\
-    month: "long",\n\
-    day: "numeric",\n\
-    year: "numeric",\n\
-  });\n\
-}\n\
-\n\
-export const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));' > ./src/lib/utils.js
+RUN mkdir -p ./src/lib
+RUN echo 'import { clsx } from "clsx";' > ./src/lib/utils.js
+RUN echo 'import { twMerge } from "tailwind-merge";' >> ./src/lib/utils.js
+RUN echo '' >> ./src/lib/utils.js
+RUN echo 'export function cn(...inputs) {' >> ./src/lib/utils.js
+RUN echo '  return twMerge(clsx(inputs));' >> ./src/lib/utils.js
+RUN echo '}' >> ./src/lib/utils.js
+RUN echo '' >> ./src/lib/utils.js
+RUN echo 'export function formatDate(input) {' >> ./src/lib/utils.js
+RUN echo '  const date = new Date(input);' >> ./src/lib/utils.js
+RUN echo '  return date.toLocaleDateString("en-US", {' >> ./src/lib/utils.js
+RUN echo '    month: "long",' >> ./src/lib/utils.js
+RUN echo '    day: "numeric",' >> ./src/lib/utils.js
+RUN echo '    year: "numeric",' >> ./src/lib/utils.js
+RUN echo '  });' >> ./src/lib/utils.js
+RUN echo '}' >> ./src/lib/utils.js
+RUN echo '' >> ./src/lib/utils.js
+RUN echo 'export const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));' >> ./src/lib/utils.js
 
 # Build the application without running linting
 RUN npm run build -- --no-lint
