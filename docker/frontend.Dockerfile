@@ -13,5 +13,5 @@ COPY frontend/ .
 # Expose port
 EXPOSE 3000
 
-# Start the application in development mode for better error reporting
-CMD ["npm", "run", "dev"] 
+# Start the application in production mode
+CMD ["npm", "start"] 
