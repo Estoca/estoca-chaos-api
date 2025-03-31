@@ -49,13 +49,6 @@ services:
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-    volumes:
-      - ./frontend:/app
-      - /app/.next
-    command: >
-      sh -c "
-        npm install &&
-        npm run dev"
     depends_on:
       - backend
 

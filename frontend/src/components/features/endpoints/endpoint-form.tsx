@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ParameterList } from "./parameter-list"
+import { safeJsonParse } from "@/lib/utils"
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -71,11 +72,27 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
 
   async function onSubmit(values: FormValues) {
     try {
+      // Safely parse response schema
+      const responseSchema = safeJsonParse(values.response_schema)
+      
+      // Normalize data to prevent serialization issues
+      const sanitizedHeaders = values.headers.map(header => ({
+        ...header,
+        default_response: header.default_response || {},
+      }))
+
+      const sanitizedUrlParameters = values.url_parameters.map(param => ({
+        ...param,
+        default_response: param.default_response || {},
+      }))
+
       const submitValues = {
         ...values,
-        response_schema: values.response_schema ? JSON.parse(values.response_schema) : {},
+        response_schema: responseSchema,
         description: values.description || "",
         response_body: values.response_body || "",
+        headers: sanitizedHeaders,
+        url_parameters: sanitizedUrlParameters,
       }
 
       if (endpointId) {

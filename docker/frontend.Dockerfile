@@ -10,11 +10,8 @@ RUN npm install
 # Copy application code
 COPY frontend/ .
 
-# Build the application
-RUN npm run build
-
 # Expose port
 EXPOSE 3000
 
-# Start the application
+# Start the application in development mode for better error reporting
 CMD ["npm", "run", "dev"] 

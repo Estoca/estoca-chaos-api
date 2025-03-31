@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { type Header, type UrlParameter } from "@/types/endpoint"
+import { safeJsonParse, safeJsonStringify } from "@/lib/utils"
 
 interface ParameterListProps {
   type: "header" | "parameter"
@@ -30,7 +31,7 @@ export function ParameterList({ type, items, onChange }: ParameterListProps) {
       name: newItem.name,
       value: newItem.value,
       required: newItem.required,
-      default_response: newItem.default_response,
+      default_response: newItem.default_response || {},
       default_status_code: newItem.default_status_code,
     }
 
@@ -121,13 +122,14 @@ export function ParameterList({ type, items, onChange }: ParameterListProps) {
                   />
                   <Textarea
                     placeholder="Default Response (JSON)"
-                    value={JSON.stringify(item.default_response, null, 2)}
+                    value={safeJsonStringify(item.default_response)}
                     onChange={(e) => {
                       try {
-                        const parsed = JSON.parse(e.target.value)
+                        const parsed = safeJsonParse(e.target.value)
                         updateItem(item.id, { default_response: parsed })
                       } catch (error) {
                         // Invalid JSON, ignore
+                        console.error("Invalid JSON input:", error)
                       }
                     }}
                   />
