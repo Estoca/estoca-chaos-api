@@ -3,11 +3,15 @@ FROM node:18-alpine
 # Set working directory
 WORKDIR /app
 
-# Set environment variables explicitly during build
-ENV NEXT_PUBLIC_API_URL=http://localhost:8033/api/v1
-ENV INTERNAL_API_URL=http://backend:8033/api/v1
-# Use NEXTAUTH_URL from docker-compose environment variables
-# ENV NEXTAUTH_URL is intentionally not set here to avoid hardcoding
+# Accept build args to be used during the build process
+ARG NEXT_PUBLIC_API_URL
+ARG INTERNAL_API_URL
+ARG NEXTAUTH_URL
+
+# Set environment variables for the build process
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV INTERNAL_API_URL=${INTERNAL_API_URL}
+ENV NEXTAUTH_URL=${NEXTAUTH_URL}
 
 # Install dependencies
 COPY frontend/package.json ./
