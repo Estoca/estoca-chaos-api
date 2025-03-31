@@ -140,7 +140,6 @@ class EndpointRepository:
             # Re-fetch using get_by_id to ensure all data (including relationships) is loaded
             refreshed_endpoint = await self.get_by_id(endpoint_id)
             return refreshed_endpoint # Return the re-fetched object
-        # return endpoint # Original return removed
         return None # Should return None if endpoint wasn't found initially
 
     async def delete(self, endpoint_id: UUID) -> bool:

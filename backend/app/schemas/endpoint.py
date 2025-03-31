@@ -29,6 +29,7 @@ class EndpointBase(BaseModel):
     response_schema: Optional[Dict[str, Any]] = None
     response_status_code: Optional[int] = 200
     response_body: Optional[str] = None
+    request_body_schema: Optional[Dict[str, Any]] = None
     headers: List[HeaderBase] = Field(default_factory=list, description="Expected headers")
     url_parameters: List[UrlParameterBase] = Field(default_factory=list, description="Expected URL parameters")
 

@@ -17,6 +17,7 @@ class Endpoint(Base):
     response_schema = Column(JSON, nullable=True)
     response_status_code = Column(Integer, nullable=False, default=200)
     response_body = Column(String, nullable=True)
+    request_body_schema = Column(JSON, nullable=True)
     group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id"), nullable=False)
     created_by_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
 

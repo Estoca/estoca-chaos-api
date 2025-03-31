@@ -160,5 +160,5 @@ export async function updateEndpoint({ groupId, endpointId, data }: UpdateEndpoi
     throw new Error(errorDetail);
   }
 
-  return response.json()
+  return response.json();
 } 
