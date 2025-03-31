@@ -34,6 +34,63 @@ RUN echo '  });' >> ./src/lib/utils.js
 RUN echo '}' >> ./src/lib/utils.js
 RUN echo '' >> ./src/lib/utils.js
 RUN echo 'export const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));' >> ./src/lib/utils.js
+RUN echo '' >> ./src/lib/utils.js
+RUN echo '// Safe JSON stringify function' >> ./src/lib/utils.js
+RUN echo 'export function safeJsonStringify(value, indent = 2) {' >> ./src/lib/utils.js
+RUN echo '  try {' >> ./src/lib/utils.js
+RUN echo '    return JSON.stringify(value, null, indent);' >> ./src/lib/utils.js
+RUN echo '  } catch (error) {' >> ./src/lib/utils.js
+RUN echo '    console.error("Failed to stringify JSON:", error);' >> ./src/lib/utils.js
+RUN echo '    return "{}";' >> ./src/lib/utils.js
+RUN echo '  }' >> ./src/lib/utils.js
+RUN echo '}' >> ./src/lib/utils.js
+RUN echo '' >> ./src/lib/utils.js
+RUN echo '// Safe JSON parse function' >> ./src/lib/utils.js
+RUN echo 'export function safeJsonParse(jsonString, fallback = {}) {' >> ./src/lib/utils.js
+RUN echo '  try {' >> ./src/lib/utils.js
+RUN echo '    return jsonString ? JSON.parse(jsonString) : fallback;' >> ./src/lib/utils.js
+RUN echo '  } catch (error) {' >> ./src/lib/utils.js
+RUN echo '    console.error("Failed to parse JSON:", error);' >> ./src/lib/utils.js
+RUN echo '    return fallback;' >> ./src/lib/utils.js
+RUN echo '  }' >> ./src/lib/utils.js
+RUN echo '}' >> ./src/lib/utils.js
+RUN echo '' >> ./src/lib/utils.js
+RUN echo '// Generate example from JSON schema' >> ./src/lib/utils.js
+RUN echo 'export function generateExampleFromSchema(schema) {' >> ./src/lib/utils.js
+RUN echo '  if (!schema) return {};' >> ./src/lib/utils.js
+RUN echo '  ' >> ./src/lib/utils.js
+RUN echo '  try {' >> ./src/lib/utils.js
+RUN echo '    // Basic implementation for common schema types' >> ./src/lib/utils.js
+RUN echo '    if (schema.type === "object") {' >> ./src/lib/utils.js
+RUN echo '      const result = {};' >> ./src/lib/utils.js
+RUN echo '      if (schema.properties) {' >> ./src/lib/utils.js
+RUN echo '        Object.keys(schema.properties).forEach(propName => {' >> ./src/lib/utils.js
+RUN echo '          result[propName] = generateExampleFromSchema(schema.properties[propName]);' >> ./src/lib/utils.js
+RUN echo '        });' >> ./src/lib/utils.js
+RUN echo '      }' >> ./src/lib/utils.js
+RUN echo '      return result;' >> ./src/lib/utils.js
+RUN echo '    } else if (schema.type === "array") {' >> ./src/lib/utils.js
+RUN echo '      if (schema.items) {' >> ./src/lib/utils.js
+RUN echo '        return [generateExampleFromSchema(schema.items)];' >> ./src/lib/utils.js
+RUN echo '      }' >> ./src/lib/utils.js
+RUN echo '      return [];' >> ./src/lib/utils.js
+RUN echo '    } else if (schema.type === "string") {' >> ./src/lib/utils.js
+RUN echo '      return schema.example || schema.default || "string";' >> ./src/lib/utils.js
+RUN echo '    } else if (schema.type === "number" || schema.type === "integer") {' >> ./src/lib/utils.js
+RUN echo '      return schema.example || schema.default || 0;' >> ./src/lib/utils.js
+RUN echo '    } else if (schema.type === "boolean") {' >> ./src/lib/utils.js
+RUN echo '      return schema.example || schema.default || false;' >> ./src/lib/utils.js
+RUN echo '    } else if (schema.type === "null") {' >> ./src/lib/utils.js
+RUN echo '      return null;' >> ./src/lib/utils.js
+RUN echo '    }' >> ./src/lib/utils.js
+RUN echo '    ' >> ./src/lib/utils.js
+RUN echo '    // Default fallback' >> ./src/lib/utils.js
+RUN echo '    return {};' >> ./src/lib/utils.js
+RUN echo '  } catch (error) {' >> ./src/lib/utils.js
+RUN echo '    console.error("Error generating example from schema:", error);' >> ./src/lib/utils.js
+RUN echo '    return {};' >> ./src/lib/utils.js
+RUN echo '  }' >> ./src/lib/utils.js
+RUN echo '}' >> ./src/lib/utils.js
 
 # Build the application without running linting
 RUN npm run build -- --no-lint
