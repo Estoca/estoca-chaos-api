@@ -2,8 +2,11 @@
 
 import { notFound } from "next/navigation"
 import { EndpointList } from "@/components/features/endpoints/endpoint-list"
-import { useGroups } from "@/hooks/use-groups"
+import { useGroup } from "@/hooks/use-group"
 import { type UUID } from "@/types/endpoint"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Terminal } from "lucide-react"
 
 interface GroupDetailPageProps {
   params: {
@@ -12,8 +15,33 @@ interface GroupDetailPageProps {
 }
 
 export default function GroupDetailPage({ params }: GroupDetailPageProps) {
-  const { groups } = useGroups()
-  const group = groups.find((g) => g.id === params.groupId)
+  const { data: group, isLoading, isError, error } = useGroup(params.groupId)
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-8 space-y-8">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="container mx-auto py-8">
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Error Fetching Group</AlertTitle>
+          <AlertDescription>
+            {error instanceof Error ? error.message : "An unknown error occurred."}
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
 
   if (!group) {
     notFound()
@@ -23,7 +51,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
     <div className="container mx-auto py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold">{group.name}</h1>
-        <p className="text-muted-foreground">{group.description}</p>
+        <p className="text-muted-foreground">{group.description || "No description provided."}</p>
       </div>
       <EndpointList groupId={params.groupId} />
     </div>
