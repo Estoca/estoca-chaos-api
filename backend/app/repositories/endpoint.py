@@ -1,8 +1,9 @@
 from typing import List, Optional
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from fastapi import HTTPException, status
 
 from app.models.endpoint import Endpoint
 from app.schemas.endpoint import EndpointCreate, EndpointUpdate
@@ -11,7 +12,36 @@ class EndpointRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    async def check_duplicate_endpoint(self, group_id: UUID, path: str, method: str, endpoint_id: Optional[UUID] = None) -> bool:
+        """Check if there's already an endpoint with the same path and method in the group"""
+        query = select(Endpoint).where(
+            and_(
+                Endpoint.group_id == str(group_id),
+                Endpoint.path == path,
+                Endpoint.method == method
+            )
+        )
+        
+        # If updating an existing endpoint, exclude it from the check
+        if endpoint_id:
+            query = query.where(Endpoint.id != endpoint_id)
+            
+        result = await self.session.execute(query)
+        existing_endpoint = result.scalar_one_or_none()
+        return existing_endpoint is not None
+
     async def create(self, endpoint_data: EndpointCreate, created_by_id: UUID) -> Endpoint:
+        # Check for duplicates
+        duplicate_exists = await self.check_duplicate_endpoint(
+            endpoint_data.group_id, endpoint_data.path, endpoint_data.method
+        )
+        
+        if duplicate_exists:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"An endpoint with path '{endpoint_data.path}' and method '{endpoint_data.method}' already exists in this group"
+            )
+        
         endpoint = Endpoint(
             **endpoint_data.model_dump(),
             created_by_id=created_by_id
@@ -42,6 +72,22 @@ class EndpointRepository:
     ) -> Optional[Endpoint]:
         endpoint = await self.get_by_id(endpoint_id)
         if endpoint:
+            # If path or method is changing, check for duplicates
+            if (endpoint_data.path and endpoint_data.path != endpoint.path) or \
+               (endpoint_data.method and endpoint_data.method != endpoint.method):
+                duplicate_exists = await self.check_duplicate_endpoint(
+                    endpoint.group_id, 
+                    endpoint_data.path or endpoint.path, 
+                    endpoint_data.method or endpoint.method,
+                    endpoint_id
+                )
+                
+                if duplicate_exists:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"An endpoint with path '{endpoint_data.path or endpoint.path}' and method '{endpoint_data.method or endpoint.method}' already exists in this group"
+                    )
+                    
             for key, value in endpoint_data.model_dump(exclude_unset=True).items():
                 setattr(endpoint, key, value)
             await self.session.commit()

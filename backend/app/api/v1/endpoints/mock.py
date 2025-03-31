@@ -1,10 +1,15 @@
 import asyncio
 import random
-from typing import Any, Dict, Optional
+import json
+from typing import Any, Dict, Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
+from fastapi.responses import JSONResponse, PlainTextResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
+from uuid import UUID
 
-from app.api.v1.dependencies import get_db
+from app.api.deps import get_db
 from app.models.endpoint import Endpoint
 from app.models.group import Group
 from app.services.json_schema import generate_from_schema
@@ -16,19 +21,35 @@ async def handle_mock_endpoint(
     request: Request,
     group_name: str,
     endpoint_path: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
     # Find the group and endpoint
-    group = db.query(Group).filter(Group.name == group_name).first()
+    # Case-insensitive search for group name
+    result = await db.execute(
+        select(Group).filter(func.lower(Group.name) == group_name.lower())
+    )
+    group = result.scalar_one_or_none()
     if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise HTTPException(status_code=404, detail=f"Group '{group_name}' not found")
     
-    endpoint = db.query(Endpoint).filter(
-        Endpoint.group_id == str(group.id),
-        Endpoint.name == endpoint_path,
-    ).first()
+    # Find the endpoint matching the path and method
+    request_method = request.method
+    result = await db.execute(
+        select(Endpoint)
+        .options(selectinload(Endpoint.headers), selectinload(Endpoint.url_parameters))
+        .filter(
+            Endpoint.group_id == str(group.id),
+            Endpoint.path == endpoint_path,
+            Endpoint.method == request_method
+        )
+    )
+    endpoint = result.scalar_one_or_none()
+    
     if not endpoint:
-        raise HTTPException(status_code=404, detail="Endpoint not found")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"No endpoint found with path '{endpoint_path}' and method '{request_method}' in group '{group.name}'"
+        )
     
     # Check if this is a chaos mode request
     is_chaos = request.url.path.endswith("/chaos")
@@ -36,22 +57,24 @@ async def handle_mock_endpoint(
         raise HTTPException(status_code=404, detail="Chaos mode not enabled for this endpoint")
     
     # Validate headers
-    for header in endpoint.headers:
+    headers_list = endpoint.headers or []
+    for header in headers_list:
         header_value = request.headers.get(header.name)
         if header.required and header_value != header.value:
             if header.default_response and header.default_status_code:
-                return header.default_response, header.default_status_code
+                return JSONResponse(content=header.default_response, status_code=header.default_status_code)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid header: {header.name}",
             )
     
     # Validate URL parameters
-    for param in endpoint.url_parameters:
+    url_params_list = endpoint.url_parameters or []
+    for param in url_params_list:
         param_value = request.query_params.get(param.name)
         if param.required and param_value != param.value:
             if param.default_response and param.default_status_code:
-                return param.default_response, param.default_status_code
+                return JSONResponse(content=param.default_response, status_code=param.default_status_code)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid parameter: {param.name}",
@@ -84,18 +107,26 @@ async def handle_mock_endpoint(
         elif chaos_effect == "random_delay":
             await asyncio.sleep(random.uniform(0.1, 2))
         elif chaos_effect == "random_body":
-            return {"error": "Random error message"}, 200
+            return JSONResponse(content={"error": "Random error message"}, status_code=200)
         elif chaos_effect == "random_header":
-            return {"data": "Success"}, random.choice([200, 201, 202, 203])
+            return JSONResponse(content={"data": "Success"}, status_code=random.choice([200, 201, 202, 203]))
         elif chaos_effect == "random_status":
-            return {"data": "Success"}, random.choice([400, 401, 403, 404, 500, 502, 503, 504])
+            return JSONResponse(content={"data": "Success"}, status_code=random.choice([400, 401, 403, 404, 500, 502, 503, 504]))
     
     # Generate response based on schema or return static body
     if endpoint.response_body:
-        return endpoint.response_body, endpoint.response_status_code
+        try:
+            if isinstance(endpoint.response_body, str):
+                response_body = json.loads(endpoint.response_body)
+            else:
+                response_body = endpoint.response_body
+            return JSONResponse(content=response_body, status_code=endpoint.response_status_code)
+        except json.JSONDecodeError:
+            # If response_body is not valid JSON, return it as a plain text
+            return PlainTextResponse(content=endpoint.response_body, status_code=endpoint.response_status_code)
     
     response_data = generate_from_schema(endpoint.response_schema)
-    return response_data, endpoint.response_status_code
+    return JSONResponse(content=response_data, status_code=endpoint.response_status_code)
 
 
 # Dynamic route handler for all HTTP methods
@@ -104,7 +135,7 @@ async def mock_endpoint(
     request: Request,
     group_name: str,
     endpoint_path: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
     return await handle_mock_endpoint(request, group_name, endpoint_path, db)
 
@@ -115,6 +146,6 @@ async def mock_endpoint_chaos(
     request: Request,
     group_name: str,
     endpoint_path: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
     return await handle_mock_endpoint(request, group_name, endpoint_path, db) 
