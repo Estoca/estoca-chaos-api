@@ -31,7 +31,7 @@ export function useGroups() {
   const createGroup = useMutation({
     mutationFn: async (data: { name: string; description: string }) => {
       try {
-        const response = await api.post<Group>("/groups", data)
+        const response = await api.post<Group>("/groups/", data)
         return response.data
       } catch (error: unknown) {
         console.error("Failed to create group:", error)

@@ -57,8 +57,34 @@ export function useEndpoints(groupId: UUID) {
 
   const { mutate: createEndpointMutate, isPending: isCreating } = useMutation<Endpoint, Error, EndpointCreate>({
     mutationFn: async (data: EndpointCreate) => {
-      console.warn("createEndpoint API function not yet implemented in api.ts")
-      return { ...data, id: crypto.randomUUID(), created_by_id: crypto.randomUUID(), headers: [], url_parameters: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString(), created_at_epoch: Date.now() } as Endpoint
+      try {
+        const response = await api.post<Endpoint>(
+          `/groups/${groupId}/endpoints/`,
+          data
+        )
+        return response.data
+      } catch (error) {
+        console.error("Failed to create endpoint:", error)
+        if (axios.isAxiosError(error)) {
+          const errorMessage =
+            error.response?.data?.detail || "Failed to create endpoint"
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description:
+              typeof errorMessage === "string"
+                ? errorMessage
+                : JSON.stringify(errorMessage),
+          })
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "An unknown error occurred while creating the endpoint.",
+          })
+        }
+        throw error
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["endpoints", groupId] })
