@@ -20,7 +20,8 @@ const handler = NextAuth({
     async jwt({ token, account }) {
       if (account && account.access_token) {
         try {
-          const response = await fetch(`${process.env.INTERNAL_API_URL}auth/google`, {
+          const baseUrl = process.env.INTERNAL_API_URL?.replace(/\/$/, ''); // Remove potential trailing slash
+          const response = await fetch(`${baseUrl}/auth/google`, { // Add leading slash
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${account.access_token}`,
@@ -44,9 +45,9 @@ const handler = NextAuth({
       return token;
     },
     async session({ session, token }) {
+      (session as any).accessToken = token.accessToken;
       if (session.user) {
         session.user.id = token.sub || '';
-        (session as any).accessToken = token.accessToken;
       }
       return session;
     },

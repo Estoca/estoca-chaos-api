@@ -64,6 +64,11 @@ services:
       - PORT=3000
     depends_on:
       - backend
+    command: >
+      sh -c '
+        echo "FRONTEND CONTAINER: NEXTAUTH_SECRET value is [$NEXTAUTH_SECRET]"; 
+        npm run start
+      '
 
   db:
     image: postgres:15
