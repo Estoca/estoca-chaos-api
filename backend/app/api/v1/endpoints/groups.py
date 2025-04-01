@@ -19,7 +19,7 @@ router.include_router(
 )
 
 
-@router.get("/", response_model=List[GroupResponse])
+@router.get("", response_model=List[GroupResponse])
 async def read_groups(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),

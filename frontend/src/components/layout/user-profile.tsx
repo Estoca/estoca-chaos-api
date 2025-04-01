@@ -24,12 +24,16 @@ export function UserProfile() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={session.user.image} alt={session.user.name} />
+            <AvatarImage 
+              src={session.user.image ?? undefined}
+              alt={session.user.name ?? 'User'}
+            />
             <AvatarFallback>
-              {session.user.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
+              {
+                (session.user.name ?? '')
+                  .split(" ")
+                  .map((part) => part[0])
+                  .join("")}
             </AvatarFallback>
           </Avatar>
         </Button>

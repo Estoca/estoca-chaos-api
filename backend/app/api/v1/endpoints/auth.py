@@ -7,9 +7,9 @@ import requests
 from app.api.deps import get_db, get_current_user
 from app.core.config import settings
 from app.services.auth import create_access_token, get_user_by_email, create_user
+from app.models.user import User
 
 router = APIRouter()
-
 
 @router.post("/google")
 async def google_auth(
@@ -56,10 +56,9 @@ async def google_auth(
         }
     }
 
-
 @router.get("/me")
 async def read_users_me(
-    current_user: Any = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     return {
         "id": str(current_user.id),

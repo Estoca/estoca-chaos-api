@@ -10,7 +10,7 @@ from app.schemas.endpoint import Endpoint, EndpointCreate, EndpointUpdate
 
 router = APIRouter()
 
-@router.get("/", response_model=List[Endpoint])
+@router.get("", response_model=List[Endpoint])
 async def list_endpoints(
     group_id: UUID,
     db: AsyncSession = Depends(get_db),

@@ -1,6 +1,7 @@
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import PostgresDsn, validator
+import os
 
 
 class Settings(BaseSettings):
@@ -30,9 +31,9 @@ class Settings(BaseSettings):
         )
 
     # JWT Settings
-    SECRET_KEY: str
+    SECRET_KEY: str = os.getenv("APP_SECRET", "default-secret-key")
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8 # 8 days
 
     # Google OAuth2 Settings
     GOOGLE_CLIENT_ID: str
@@ -45,4 +46,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(case_sensitive=True, env_file=".env")
 
 
-settings = Settings() 
+settings = Settings()
+
+# Print the secret key being used for verification
+print(f"BACKEND: Using SECRET_KEY: {settings.SECRET_KEY[:5]}...{settings.SECRET_KEY[-5:] if len(settings.SECRET_KEY) > 10 else ''}") 

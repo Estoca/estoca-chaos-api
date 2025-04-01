@@ -4,17 +4,29 @@ import { type Endpoint, type UUID, type EndpointCreate, type EndpointUpdate } fr
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8033/api/v1"
 
-async function getHeaders() {
+const getAuthHeaders = async () => {
   const session = await getSession()
   return {
     "Content-Type": "application/json",
-    "Authorization": `Bearer ${session?.user?.accessToken}`,
+    "Authorization": `Bearer ${session?.accessToken}`,
   }
+}
+
+export const fetcher = async (url: string) => {
+  const response = await fetch(url, {
+    headers: await getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch data")
+  }
+
+  return response.json()
 }
 
 export async function getGroups(): Promise<Group[]> {
   const response = await fetch(`${API_URL}/groups`, {
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   })
 
   if (!response.ok) {
@@ -26,7 +38,7 @@ export async function getGroups(): Promise<Group[]> {
 
 export async function getGroup(id: string): Promise<Group> {
   const response = await fetch(`${API_URL}/groups/${id}`, {
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   })
 
   if (!response.ok) {
@@ -39,7 +51,7 @@ export async function getGroup(id: string): Promise<Group> {
 export async function createGroup(data: CreateGroupInput): Promise<Group> {
   const response = await fetch(`${API_URL}/groups`, {
     method: "POST",
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   })
 
@@ -53,7 +65,7 @@ export async function createGroup(data: CreateGroupInput): Promise<Group> {
 export async function updateGroup(id: string, data: UpdateGroupInput): Promise<Group> {
   const response = await fetch(`${API_URL}/groups/${id}`, {
     method: "PUT",
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   })
 
@@ -67,7 +79,7 @@ export async function updateGroup(id: string, data: UpdateGroupInput): Promise<G
 export async function deleteGroup(id: string): Promise<void> {
   const response = await fetch(`${API_URL}/groups/${id}`, {
     method: "DELETE",
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   })
 
   if (!response.ok) {
@@ -85,7 +97,7 @@ interface DeleteEndpointParams {
 export async function deleteEndpoint({ groupId, endpointId }: DeleteEndpointParams): Promise<void> {
   const response = await fetch(`${API_URL}/groups/${groupId}/endpoints/${endpointId}`, {
     method: "DELETE",
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   })
 
   if (!response.ok) {
@@ -118,7 +130,7 @@ interface UpdateEndpointPayload {
 // Add getEndpoint function
 export async function getEndpoint({ groupId, endpointId }: EndpointApiParams): Promise<Endpoint> {
   const response = await fetch(`${API_URL}/groups/${groupId}/endpoints/${endpointId}`, {
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   });
 
   if (!response.ok) {
@@ -145,7 +157,7 @@ export async function getEndpoint({ groupId, endpointId }: EndpointApiParams): P
 export async function updateEndpoint({ groupId, endpointId, data }: UpdateEndpointPayload): Promise<Endpoint> {
   const response = await fetch(`${API_URL}/groups/${groupId}/endpoints/${endpointId}`, {
     method: "PUT",
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   })
 

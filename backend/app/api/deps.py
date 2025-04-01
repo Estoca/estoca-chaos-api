@@ -2,7 +2,7 @@ from typing import AsyncGenerator, Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt
+from jose import jwt, JWTError
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -13,7 +13,7 @@ from app.models.user import User
 from app.schemas.token import TokenPayload
 
 reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login"
+    tokenUrl=f"{settings.API_V1_STR}/auth/google"
 )
 
 async def get_db() -> AsyncGenerator:
@@ -26,10 +26,12 @@ async def get_current_user(
 ) -> User:
     try:
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            token, 
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM]
         )
         token_data = TokenPayload(**payload)
-    except (jwt.JWTError, ValidationError):
+    except (JWTError, ValidationError):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",

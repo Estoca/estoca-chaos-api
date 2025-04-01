@@ -1,25 +1,35 @@
 version: '3.8'
 
 services:
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx.Dockerfile
+    ports:
+      - "${PORT}:80"
+    environment:
+      - DOMAIN=${DOMAIN}
+    depends_on:
+      - frontend
+      - backend
+
   backend:
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
-    ports:
-      - "${BACKEND_PORT}:${BACKEND_PORT}"
     environment:
       - PYTHONPATH=/app
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_SERVER}:5432/${POSTGRES_DB}
       - POSTGRES_SERVER=${POSTGRES_SERVER}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
-      - SECRET_KEY=${SECRET_KEY}
+      - SECRET_KEY=${APP_SECRET:-'changeme-in-production'}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - OAUTH_REDIRECT_URL=${OAUTH_REDIRECT_URL}
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
-      - BACKEND_PORT=${BACKEND_PORT}
+      - OAUTH_REDIRECT_URL=http://${DOMAIN}:${PORT}/api/auth/callback/google
+      - BACKEND_CORS_ORIGINS=["http://${DOMAIN}:${PORT}"]
+      - BACKEND_PORT=${BACKEND_PORT:-8000}
     depends_on:
       db:
         condition: service_healthy
@@ -35,23 +45,20 @@ services:
         echo 'Database is ready!'
         PGPASSWORD=${POSTGRES_PASSWORD} psql -h db -U ${POSTGRES_USER} -d postgres -c 'CREATE DATABASE ${POSTGRES_DB};' || true
         poetry run alembic upgrade head &&
-        poetry run uvicorn app.main:app --host 0.0.0.0 --port ${BACKEND_PORT} --reload"
+        poetry run uvicorn app.main:app --host 0.0.0.0 --reload"
 
   frontend:
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-        - INTERNAL_API_URL=${INTERNAL_API_URL}
-        - NEXTAUTH_URL=${NEXTAUTH_URL:-https://mock.cava.industries}
-    ports:
-      - "${FRONTEND_PORT}:3000"
+        - NEXT_PUBLIC_API_URL=http://${DOMAIN}:${PORT}/api/v1
+        - INTERNAL_API_URL=http://backend:${BACKEND_PORT:-8000}/api/v1
+        - NEXTAUTH_URL=http://${DOMAIN}:${PORT}
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-      - INTERNAL_API_URL=${INTERNAL_API_URL}
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://mock.cava.industries}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXT_PUBLIC_API_URL=http://${DOMAIN}:${PORT}/api/v1
+      - INTERNAL_API_URL=http://backend:${BACKEND_PORT:-8000}/api/v1
+      - NEXTAUTH_URL=http://${DOMAIN}:${PORT}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - PORT=3000
@@ -66,8 +73,6 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=postgres
-    ports:
-      - "${POSTGRES_PORT}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
