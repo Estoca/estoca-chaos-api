@@ -9,19 +9,19 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     const session = await getSession()
-    // Add detailed logging
-    console.log("AXIOS INTERCEPTOR: URL=", config.url);
-    console.log("AXIOS INTERCEPTOR: Session object=", JSON.stringify(session));
+    // Remove detailed logging
+    // console.log("AXIOS INTERCEPTOR: URL=", config.url);
+    // console.log("AXIOS INTERCEPTOR: Session object=", JSON.stringify(session));
     
     // Check for accessToken directly on the session object
     if (session?.accessToken) {
       config.headers.Authorization = `Bearer ${session.accessToken}`
-      console.log("AXIOS INTERCEPTOR: Added Auth header for", config.url);
+      // console.log("AXIOS INTERCEPTOR: Added Auth header for", config.url);
     } else {
-      console.log("AXIOS INTERCEPTOR: No accessToken found in session for", config.url);
+      // console.log("AXIOS INTERCEPTOR: No accessToken found in session for", config.url);
     }
     
-    console.log("API Request Headers:", JSON.stringify(config.headers));
+    // console.log("API Request Headers:", JSON.stringify(config.headers));
     return config
   },
   (error) => {

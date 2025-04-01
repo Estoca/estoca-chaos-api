@@ -9,6 +9,7 @@ services:
       - "${PORT}:80"
     environment:
       - DOMAIN=${DOMAIN}
+    env_file: .env
     depends_on:
       - frontend
       - backend
@@ -27,9 +28,10 @@ services:
       - SECRET_KEY=${APP_SECRET:-'changeme-in-production'}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - OAUTH_REDIRECT_URL=http://${DOMAIN}:${PORT}/api/auth/callback/google
-      - BACKEND_CORS_ORIGINS=["http://${DOMAIN}:${PORT}"]
+      - OAUTH_REDIRECT_URL=${APP_PROTOCOL:-http}://${DOMAIN}/api/auth/callback/google
+      - BACKEND_CORS_ORIGINS=["${APP_PROTOCOL:-http}://${DOMAIN}"]
       - BACKEND_PORT=${BACKEND_PORT:-8000}
+    env_file: .env
     depends_on:
       db:
         condition: service_healthy
@@ -52,23 +54,18 @@ services:
       context: .
       dockerfile: docker/frontend.Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://${DOMAIN}:${PORT}/api/v1
+        - NEXT_PUBLIC_API_URL=${APP_PROTOCOL:-http}://${DOMAIN}/api/v1
         - INTERNAL_API_URL=http://backend:${BACKEND_PORT:-8000}/api/v1
-        - NEXTAUTH_URL=http://${DOMAIN}:${PORT}
+        - NEXTAUTH_URL=${APP_PROTOCOL:-http}://${DOMAIN}
     environment:
-      - NEXT_PUBLIC_API_URL=http://${DOMAIN}:${PORT}/api/v1
+      - NEXT_PUBLIC_API_URL=${APP_PROTOCOL:-http}://${DOMAIN}/api/v1
       - INTERNAL_API_URL=http://backend:${BACKEND_PORT:-8000}/api/v1
-      - NEXTAUTH_URL=http://${DOMAIN}:${PORT}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - NEXTAUTH_URL=${APP_PROTOCOL:-http}://${DOMAIN}
       - PORT=3000
+      - NEXTAUTH_SECRET=${APP_SECRET}
+    env_file: .env
     depends_on:
       - backend
-    command: >
-      sh -c '
-        echo "FRONTEND CONTAINER: NEXTAUTH_SECRET value is [$NEXTAUTH_SECRET]"; 
-        npm run start
-      '
 
   db:
     image: postgres:15
@@ -83,6 +80,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    env_file: .env
 
 volumes:
   postgres_data: 
