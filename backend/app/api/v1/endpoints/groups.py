@@ -24,9 +24,7 @@ async def read_groups(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Any:
-    result = await db.execute(
-        select(Group).where(Group.created_by_id == str(current_user.id))
-    )
+    result = await db.execute(select(Group))
     return list(result.scalars().all())
 
 
@@ -37,6 +35,17 @@ async def create_group(
     current_user: User = Depends(get_current_user),
     group_in: GroupCreate,
 ) -> Any:
+    # Check if a group with the same name already exists
+    result = await db.execute(
+        select(Group).where(Group.name == group_in.name)
+    )
+    existing_group = result.scalar_one_or_none()
+    if existing_group:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A group with this name already exists"
+        )
+
     group = Group(
         name=group_in.name,
         description=group_in.description,
