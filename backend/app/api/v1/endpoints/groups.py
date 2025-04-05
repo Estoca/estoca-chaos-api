@@ -66,8 +66,7 @@ async def read_group(
 ) -> Any:
     result = await db.execute(
         select(Group).where(
-            Group.id == group_id,
-            Group.created_by_id == str(current_user.id),
+            Group.id == group_id
         )
     )
     group = result.scalar_one_or_none()
@@ -86,8 +85,7 @@ async def update_group(
 ) -> Any:
     result = await db.execute(
         select(Group).where(
-            Group.id == group_id,
-            Group.created_by_id == str(current_user.id),
+            Group.id == group_id
         )
     )
     group = result.scalar_one_or_none()
@@ -112,8 +110,7 @@ async def delete_group(
 ) -> Any:
     result = await db.execute(
         select(Group).where(
-            Group.id == group_id,
-            Group.created_by_id == str(current_user.id),
+            Group.id == group_id
         )
     )
     group = result.scalar_one_or_none()
