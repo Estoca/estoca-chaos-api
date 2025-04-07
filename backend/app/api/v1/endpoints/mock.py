@@ -22,6 +22,86 @@ router = APIRouter()
 # Initialize Faker instance
 fake = Faker()
 
+# --- Start: Modify post-processing helper for re-generation, rounding, and empty object filtering ---
+def post_process_data(data: Any, schema: Dict[str, Any], precision: int = 2) -> Any:
+    """Recursively processes generated data based on schema:
+       - Re-generates numbers if they fall outside min/max defined in schema.
+       - Rounds floats.
+       - Removes empty objects from arrays.
+    """
+    schema_type = schema.get("type")
+
+    if schema_type == "number" and isinstance(data, (int, float)):
+        min_val = schema.get("minimum", schema.get("min_value"))
+        max_val = schema.get("maximum", schema.get("max_value"))
+
+        processed_data = data
+        # --- Re-generation if out of bounds ---
+        is_out_of_bounds = False
+        if min_val is not None and processed_data < min_val:
+            is_out_of_bounds = True
+        if max_val is not None and processed_data > max_val:
+            is_out_of_bounds = True
+        
+        # Ensure both min and max are valid for uniform generation if needed
+        if is_out_of_bounds and min_val is not None and max_val is not None and min_val <= max_val:
+            processed_data = random.uniform(min_val, max_val)
+        # If bounds are invalid or missing, we keep the original (potentially out-of-bounds) data
+
+        # --- Rounding (only if it was originally float or re-generation resulted in float) ---
+        if isinstance(processed_data, float):
+             return round(processed_data, precision)
+        else:
+            return processed_data
+
+    elif schema_type == "integer" and isinstance(data, (int, float)):
+        min_val = schema.get("minimum", schema.get("min_value"))
+        max_val = schema.get("maximum", schema.get("max_value"))
+
+        # Ensure data is integer first (jsf might produce float for integer schema)
+        processed_data = int(round(data))
+
+        # --- Re-generation if out of bounds ---
+        is_out_of_bounds = False
+        if min_val is not None and processed_data < min_val:
+            is_out_of_bounds = True
+        if max_val is not None and processed_data > max_val:
+            is_out_of_bounds = True
+            
+        # Ensure both min and max are valid for randint generation if needed
+        if is_out_of_bounds and min_val is not None and max_val is not None and min_val <= max_val:
+            processed_data = random.randint(min_val, max_val)
+        # If bounds are invalid or missing, we keep the original (potentially out-of-bounds) int data
+
+        return processed_data
+
+    elif schema_type == "object" and isinstance(data, dict) and "properties" in schema:
+        properties = schema.get("properties", {})
+        # Process properties recursively
+        processed_obj = {
+            k: post_process_data(v, properties.get(k, {}), precision)
+            for k, v in data.items()
+            if k in properties
+        }
+        # Return the processed object, or None if it became empty (optional, decide if needed)
+        # For now, return even if empty, filtering happens at array level
+        return processed_obj
+
+    elif schema_type == "array" and isinstance(data, list) and "items" in schema:
+        item_schema = schema.get("items", {})
+        # Recursively process each item first
+        processed_items = [post_process_data(item, item_schema, precision) for item in data]
+        # --- Start: Filter out empty objects --- 
+        filtered_items = [item for item in processed_items if item != {}]
+        # --- End: Filter out empty objects --- 
+        return filtered_items
+
+    elif isinstance(data, float): # Fallback rounding
+        return round(data, precision)
+    else:
+        return data
+# --- End: Modify post-processing helper ---
+
 async def handle_mock_endpoint(
     request: Request,
     group_name: str,
@@ -160,8 +240,14 @@ async def handle_mock_endpoint(
                 try: schema_data = json.loads(schema_data)
                 except json.JSONDecodeError: raise HTTPException(status_code=500, detail="Invalid JSON schema definition stored.")
             if not isinstance(schema_data, dict): raise HTTPException(status_code=500, detail="Response schema is not a valid dictionary.")
-            # Use the correct function name here
-            response_content = generate_data_from_schema(schema_data) 
+            # Use the jsf-based generator function
+            response_content = generate_data_from_schema(schema_data)
+            
+            # --- Start: Apply post-processing (clamping & rounding) ---
+            # Pass both the generated content AND the original schema
+            response_content = post_process_data(response_content, schema_data, precision=2)
+            # --- End: Apply post-processing ---
+            
         except HTTPException as http_exc: raise http_exc
         except Exception as e: raise HTTPException(status_code=500, detail=f"Failed to generate response from schema: {e}")
     elif endpoint.response_body:
