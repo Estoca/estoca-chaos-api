@@ -554,7 +554,7 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
                     <Textarea
                       placeholder='Enter the JSON schema for the response body. Example: { "type": "object", "properties": { "id": { "type": "integer" }, "name": { "type": "string", "$provider": "faker.name" } }, "required": ["id", "name"] }'
                       className={cn(
-                        "resize-y min-h-[150px] font-mono",
+                        "resize-y min-h-[300px] font-mono",
                         schemaErrors.response_schema && "border-destructive focus-visible:ring-destructive"
                       )}
                       {...field}
@@ -629,7 +629,7 @@ export function EndpointForm({ groupId, initialData, endpointId }: EndpointFormP
                 <FormControl>
                   <Textarea
                     placeholder="Enter fixed response body (JSON, XML, text, etc.)"
-                    className="resize-y min-h-[150px] font-mono"
+                    className="resize-y min-h-[300px] font-mono"
                     {...field}
                   />
                 </FormControl>
